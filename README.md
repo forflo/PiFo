@@ -1,5 +1,8 @@
 # DESCRIPTION
-This is a plugin for Pidgin that allows you to 
+
+This is a fork of the pidgin latex plugin. It aims to
+refactor and extend it.
+The pidgin latex plugin for Pidgin allows you to 
 display LaTeX output in your IMs or Chats.
 
 # REQUIREMENTS
