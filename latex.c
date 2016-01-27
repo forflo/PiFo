@@ -206,7 +206,8 @@ static gboolean is_blacklisted(const char *message){
 	return FALSE;
 }
 
-static gboolean latex_to_image(const char *latex_expression, char **filename_png){
+static gboolean latex_to_image(const char *latex_expression, 
+        char **filename_png, enum format format){
     FILE *transcript_file;
     FILE *temp;
 
@@ -276,9 +277,21 @@ static gboolean latex_to_image(const char *latex_expression, char **filename_png
         goto error;
 
     /* Generate latex template file */
-	fprintf(transcript_file, HEADER "%s" 
-            HEADER_COLOR "%s" HEADER_MATH "%s" 
-            FOOTER_MATH FOOTER, fgcolor, bgcolor, latex_expression);
+    switch (format) {
+        case FORMULA:
+	        fprintf(transcript_file, HEADER HEADER_FCOLOR "{%s}" 
+                    HEADER_BCOLOR "{%s}" HEADER_DOC BEG_MATH "%s" END_MATH
+                    FOOTER, fgcolor, bgcolor, latex_expression);
+            break;
+        case LISTING:
+	        fprintf(transcript_file, HEADER HEADER_FCOLOR "{%s}" 
+                    HEADER_BCOLOR "{%s}" HEADER_DOC BEG_LISTING "\n%s\n" END_LISTING
+                    FOOTER, fgcolor, bgcolor, latex_expression);
+            break;
+        default:
+            goto error;
+            break;
+    }
 	fclose(transcript_file);
 
 	dirname_temp = getdirname(file_tex);
@@ -318,6 +331,7 @@ static gboolean latex_to_image(const char *latex_expression, char **filename_png
     goto out;
 
 error:
+
     unlink(file_tex);
     unlink(file_dvi);
     unlink(*filename_png);
@@ -333,6 +347,8 @@ error:
     return FALSE;
 
 out:
+    return TRUE;
+
     unlink(file_tex);
     unlink(file_dvi);
 
@@ -352,8 +368,23 @@ out:
     return TRUE;
 }
 
-static gboolean analyse(char **tmp2, char *startdelim, 
-        char *enddelim){
+static enum format get_format(const char *message){
+    if (strstr(message, LISTING_TEX_BEGIN) != NULL)
+        return LISTING;
+    if (strstr(message, KOPETE_TEX_BEGIN) != NULL)
+        return FORMULA;
+    return NONE;
+}
+
+static const char *get_format_string(enum format fmt){
+    return format_table[fmt];
+}
+
+//TODO check for mem leaks
+static gboolean analyse(char **tmp2){
+    enum format format = get_format(*tmp2);
+    const char *startdelim = get_format_string(format);
+    const char *enddelim = KOPETE_END;
 
 	int pos1, pos2, idimg, formulas = 0;
 	char *ptr1, *ptr2;
@@ -401,7 +432,7 @@ static gboolean analyse(char **tmp2, char *startdelim,
 		free(tex2);
 
 		/* Creates the image in file_png */
-		if (!latex_to_image(tex, &file_png)) {
+		if (!latex_to_image(tex, &file_png, format)) {
 			free(tex);
 			free(shortcut);
 			return FALSE;
@@ -418,12 +449,11 @@ static gboolean analyse(char **tmp2, char *startdelim,
 			return FALSE;
 		}
 
-		unlink(file_png);
-
 		idimg = purple_imgstore_add_with_id(filedata, 
                 MAX(1024, size), getfilename(file_png));
 
-		filedata = NULL;
+
+		unlink(file_png);
 		free(file_png);
 
 		if (idimg == 0) {
@@ -475,16 +505,10 @@ static gboolean analyse(char **tmp2, char *startdelim,
 		strcpy(*tmp2, message);
 		free(message);
 
-		formulas++;
-
 		ptr1 = strstr(&(*tmp2)[pos2], startdelim);
 	}
 
-	if (formulas > 0){
-		return TRUE;
-    } else {
-		return FALSE;
-    }
+    return TRUE;
 }
 
 static gboolean pidgin_latex_write(PurpleConversation *conv, 
@@ -528,9 +552,10 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 	char *temp_buffer;
 	gboolean smileys;
 
-	purple_debug_info("LaTeX", "Sending Message: %s\n", *buffer);
+	purple_debug_info("LaTeX", "(message_send()) Sending Message: %s\n", *buffer);
 
-	if (strstr(*buffer, KOPETE_TEX_BEGIN) == NULL) {
+	if (strstr(*buffer, KOPETE_TEX_BEGIN) == NULL &&
+        strstr(*buffer, LISTING_TEX_BEGIN) == NULL) {
 		return;
 	}
 
@@ -549,7 +574,7 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 	}
 
 	strcpy(temp_buffer, *buffer);
-	if (analyse(&temp_buffer, KOPETE_TEX_BEGIN, KOPETE_END)) {
+	if (analyse(&temp_buffer)) {
 		*buffer = temp_buffer;
 	} else {
         free(temp_buffer);
@@ -571,9 +596,10 @@ static gboolean message_receive(PurpleAccount *account,
         PurpleConversation *conv, PurpleMessageFlags flags){
 
 	char *temp_buffer;
-	purple_debug_info("LaTeX", "Writing Message: %s\n", *buffer);
+	purple_debug_info("LaTeX", "[message_receive()] Writing Message: %s\n", *buffer);
 
-	if (strstr(*buffer, KOPETE_TEX_BEGIN) == NULL) {
+	if (strstr(*buffer, KOPETE_TEX_BEGIN) == NULL &&
+        strstr(*buffer, LISTING_TEX_BEGIN) == NULL) {
 		return FALSE;
 	}
 
@@ -593,7 +619,8 @@ static gboolean message_receive(PurpleAccount *account,
 
 	strcpy(temp_buffer, *buffer);
 
-	if (analyse(&temp_buffer, KOPETE_TEX_BEGIN, KOPETE_END)) {
+	purple_debug_info("LaTeX", "[message_receive()] Analyse: %s\n", temp_buffer);
+	if (analyse(&temp_buffer)) {
 		pidgin_latex_write(conv, who, temp_buffer, flags, *buffer);
 		free(temp_buffer);
 		return TRUE;

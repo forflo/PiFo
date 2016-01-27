@@ -62,20 +62,26 @@
 
 #define BEG "[tex]"
 #define END "[/tex]"
-#define KOPETE_TEX_BEGIN "\\f{"
-#define LSTLISTING_TEX_BEGIN "\\l{"
-
 #define KOPETE_END "}"
+#define KOPETE_TEX_BEGIN "\\f{"
+#define LISTING_TEX_BEGIN "\\l{"
 
 #define LATEX_PLUGIN_ID "qjuh-LaTeX"
 #define WEBSITE "http://sourceforge.net/projects/pidgin-latex/"
 
-#define HEADER "\\documentclass[12pt]{article}\\usepackage{color}\\usepackage[dvips]{graphicx}\\usepackage{amsmath}\\usepackage{amssymb}\\pagestyle{empty}\\definecolor{fgcolor}{RGB}{"
-#define HEADER_COLOR "}\\definecolor{bgcolor}{RGB}{"
-#define HEADER_MATH "}\\begin{document}\\pagecolor{bgcolor}\\begin{gather*}\\color{fgcolor}"
+#define HEADER "\\documentclass[12pt]{article}\\usepackage{color}\\usepackage[dvips]{graphicx}\\usepackage{amsmath}\\usepackage{amssymb}\\usepackage[utf8]{inputenc}\\usepackage{listings}\\pagestyle{empty}"
+#define HEADER_BCOLOR "\\definecolor{bgcolor}{RGB}"
+#define HEADER_FCOLOR "\\definecolor{fgcolor}{RGB}"
+#define HEADER_DOC "\\begin{document}\\pagecolor{bgcolor}\\color{fgcolor}"
+#define HEADER_LISTING "\\lstset{numbers=none,numberstyle=\\small{\\ttfamily{}},stepnumber=1,numbersep=4pt} \\lstset{tabsize=4} \\lstset{breaklines=true,breakatwhitespace=true} \\lstset{frame=none}\\lstset{language=Haskell}"
+
+#define BEG_LISTING "\\begin{lstlisting}"
+#define END_LISTING "\\end{lstlisting}"
 
 #define FOOTER "\\end{document}"
-#define FOOTER_MATH "\\end{gather*}"
+
+#define BEG_MATH "\\begin{gather*}"
+#define END_MATH "\\end{gather*}"
 
 #define FILTER_AND "&amp;"
 #define FILTER_LT "&lt;"
@@ -88,6 +94,16 @@
 #define NB_BLACKLIST (42)
 #define BLACKLIST { "\\def", "\\let", "\\futurelet", "\\newcommand", "\\renewcommand", "\\else", "\\fi", "\\write", "\\input", "\\include", "\\chardef", "\\catcode", "\\makeatletter", "\\noexpand", "\\toksdef", "\\every", "\\errhelp", "\\errorstopmode", "\\scrollmode", "\\nonstopmode", "\\batchmode", "\\read", "\\csname", "\\newhelp", "\\relax", "\\afterground", "\\afterassignment", "\\expandafter", "\\noexpand", "\\special", "\\command", "\\loop", "\\repeat", "\\toks", "\\output", "\\line", "\\mathcode", "\\name", "\\item", "\\section", "\\mbox", "\\DeclareRobustCommand" }
 
+
+enum format {
+    LISTING = 0,
+    FORMULA,
+    NONE
+};
+
+static const char *format_table[] = {
+    "\\l{", "\\f{"
+};
 
 // prototypes
 
@@ -102,7 +118,7 @@ static gboolean is_blacklisted(const char *message);
  *
  * returns TRUE on success, false otherwise
  */
-static gboolean latex_to_image(const char *latex, char **file_png);
+static gboolean latex_to_image(const char *latex, char **file_png, enum format format);
 
 /*
  * Transform *tmp2 extracting some *startdelim here 
@@ -111,7 +127,7 @@ static gboolean latex_to_image(const char *latex, char **file_png);
  *  smileys whether or not to add the formula as a custom smiley
  * returns TRUE on success, FALSE otherwise
  */
-static gboolean analyse(char **tmp2, char *startdelim, char *enddelim);
+static gboolean analyse(char **tmp2);
 
 /*
  * pidgin_latex_write perform the effective write of the latex code in the IM or Chat windows
