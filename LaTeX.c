@@ -267,15 +267,15 @@ static gboolean is_blacklisted(char *message){
 	return FALSE;
 }
 
-static gboolean latex_to_image(char *latex, char **filename_png){
+static gboolean latex_to_image(char *latex_expression, char **filename_png){
     FILE *transcript_file;
     FILE *temp;
 
     char *filename_temp = NULL;
     char *dirname_temp = NULL;
 
-    char *file_tex;
-    char *file_dvi;
+    char *file_tex = NULL;
+    char *file_dvi = NULL;
 
     char fgcolor[16], bgcolor[16];
     gboolean exec_ok;
@@ -297,21 +297,21 @@ static gboolean latex_to_image(char *latex, char **filename_png){
         goto error;
     }
     
+    /* Create filenames based on filename_temp */
     strcpy(file_tex, filename_temp);
     strcat(file_tex, ".tex");
     strcpy(file_dvi, filename_temp);
     strcat(file_dvi, ".dvi");
     strcpy(*filename_png, filename_temp);
     strcat(*filename_png, ".png");
-    free(filename_temp);
 
     /* Gather some information about the current pidgin settings
      * so that we can populate the latex template file appropriately */
 	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/fgcolor"), "")) {
 		strcpy(fgcolor, "0,0,0");
 	} else {
-		char const *pidgin_fgcolor;
 		int rgb;
+		char const *pidgin_fgcolor;
 		pidgin_fgcolor = purple_prefs_get_string("/pidgin/conversations/fgcolor");
 		purple_debug_info("LaTeX", "found foregroundcolor '%s'\n", pidgin_fgcolor);
 		rgb = strtol(pidgin_fgcolor + 1, NULL, 16);
@@ -323,8 +323,8 @@ static gboolean latex_to_image(char *latex, char **filename_png){
 	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/bgcolor"), "")) {
 		strcpy(bgcolor, "255,255,255");
 	} else {
-		char const *pidgin_bgcolor;
 		int rgb;
+		char const *pidgin_bgcolor;
 		pidgin_bgcolor = purple_prefs_get_string("/pidgin/conversations/bgcolor");
 		purple_debug_info("LaTeX", "found backgroundcolor '%s'\n", pidgin_bgcolor);
 		rgb = strtol(pidgin_bgcolor + 1, NULL, 16);
@@ -339,8 +339,7 @@ static gboolean latex_to_image(char *latex, char **filename_png){
     /* Generate latex template file */
 	fprintf(transcript_file, HEADER "%s" 
             HEADER_COLOR "%s" HEADER_MATH "%s" 
-            FOOTER_MATH FOOTER, fgcolor, bgcolor, latex);
-
+            FOOTER_MATH FOOTER, fgcolor, bgcolor, latex_expression);
 	fclose(transcript_file);
 
 	dirname_temp = getdirname(file_tex);
@@ -384,9 +383,11 @@ error:
     unlink(file_dvi);
     unlink(*filename_png);
 
-    free(file_tex);
-    free(file_dvi);
-    free(*filename_png);
+    if (file_tex) free(file_tex);
+    if (file_dvi) free(file_dvi);
+    if (*filename_png) free(*filename_png);
+    if (filename_temp) free(filename_temp);
+    if (dirname_temp) free(dirname_temp);
 
     *filename_png = NULL;
 
@@ -404,23 +405,27 @@ out:
 	strcat(file_tex, ".log");
 	unlink(file_tex);
 
-    free(file_tex);
-    free(file_dvi);
-    free(dirname_temp);
+    if (file_tex) free(file_tex);
+    if (file_dvi) free(file_dvi);
+    if (filename_temp) free(filename_temp);
+    if (dirname_temp) free(dirname_temp);
 
     return TRUE;
 }
 
-static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean smileys)
-{
+static gboolean analyse(char **tmp2, char *startdelim, 
+        char *enddelim, gboolean smileys){
+
 	int pos1, pos2, idimg, formulas = 0;
 	char *ptr1, *ptr2;
 	char *file_png = NULL;
 	PurpleSmiley *the_smiley;
 
-	purple_debug_misc("LaTeX", "starting to analyse the message: %s\n", *tmp2);
+	purple_debug_misc("LaTeX", 
+            "Starting to analyse the message: %s\n", *tmp2);
 
 	ptr1 = strstr(*tmp2, startdelim);
+
 	while (ptr1 != NULL) {
 		char *tex, *tex2, *message, *filter, *idstring, *shortcut;
 		gchar *filedata;
@@ -429,7 +434,7 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 
 		pos1 = strlen(*tmp2) - strlen(ptr1);
 
-		// Have to ignore the first 2 char ("$$") --> & [2]
+		/* Have to ignore the first 2 char ("$$") --> & [2] */
 		ptr2 = strstr(&ptr1[strlen(startdelim)], enddelim);
 		if (ptr2 == NULL)
 			return FALSE;
@@ -437,36 +442,15 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 		pos2 = strlen(*tmp2) - strlen(ptr2) + strlen(enddelim);
 
 		if ((tex = malloc(pos2 - pos1 - strlen(enddelim) - strlen(startdelim) + 1)) == NULL) {
-			// Report the error
-			purple_notify_error(me, "LaTeX", "Error while analysing the message!", "Out of memory!");
+			/* Report the error */
+			purple_notify_error(me, "LaTeX", 
+                    "Error while analysing the message!", "Out of memory!");
 			return FALSE;
 		}
 
-		strncpy(tex, &ptr1[strlen(startdelim)], pos2 - pos1 - strlen(startdelim) - strlen(enddelim));
+		strncpy(tex, &ptr1[strlen(startdelim)], 
+                pos2 - pos1 - strlen(startdelim) - strlen(enddelim));
 		tex[pos2 - pos1 - strlen(startdelim) - strlen(enddelim)] = '\0';
-
-		// Replaced. Using official libpurple-function instead
-		/*/ Pidgin transforms & to &amp; and I make the inverse transformation
-		   while ( (filter = strstr(tex, FILTER_AND) ) != NULL)
-		   strcpy(&tex[strlen(tex) - strlen(filter) + 1], &filter[5]);
-
-		   // Pidgin transforms < to &lt
-		   while ( (filter = strstr(tex, FILTER_LT) ) != NULL)
-		   {
-		   strcpy(&tex[strlen(tex) - strlen(filter)], "<");
-		   strcpy(&tex[strlen(tex) - strlen(filter) + 1], &filter[4]);
-		   }
-
-		   // Pidgin transforms > to &gt
-		   while ( (filter = strstr(tex, FILTER_GT) ) != NULL)
-		   {
-		   strcpy(&tex[strlen(tex) - strlen(filter)], ">");
-		   strcpy(&tex[strlen(tex) - strlen(filter) + 1], &filter[4]);
-		   }
-
-		   // <br> filter
-		   while ( (filter = strstr(tex, FILTER_BR) ) != NULL)
-		   strcpy(&tex[strlen(tex) - strlen(filter)], &filter[4]);//*/
 
 		tex2 = (char*)malloc((strlen(tex) + 1) * sizeof(char));
 		strcpy(tex2, tex);
@@ -487,7 +471,7 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 			continue;
 		}
 
-		// Creates the image in file_png
+		/* Creates the image in file_png */
 		if (!latex_to_image(tex, &file_png)) {
 			free(tex);
 			free(shortcut);
@@ -496,9 +480,10 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 
 		free(tex);
 
-		// loading image
+        /* loading image */
 		if (!g_file_get_contents(file_png, &filedata, &size, &error)) {
-			purple_notify_error(me, "LaTeX", "Error while reading the generated image!", error->message);
+			purple_notify_error(me, "LaTeX", 
+                    "Error while reading the generated image!", error->message);
 			g_error_free(error);
 			free(shortcut);
 			return FALSE;
@@ -506,12 +491,16 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 
 		unlink(file_png);
 
-		idimg = purple_imgstore_add_with_id(filedata, MAX(1024, size), getfilename(file_png));
+		idimg = purple_imgstore_add_with_id(filedata, 
+                MAX(1024, size), getfilename(file_png));
+
 		filedata = NULL;
 		free(file_png);
 
 		if (idimg == 0) {
-			purple_notify_error(me, "LaTeX", "Error while reading the generated image!", "Failed to store image.");
+			purple_notify_error(me, "LaTeX", 
+                    "Error while reading the generated image!", 
+                    "Failed to store image.");
 			free(shortcut);
 			return FALSE;
 		}
@@ -523,20 +512,26 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 
 			// making new message
 			if ((message = malloc(strlen(*tmp2) + 1)) == NULL) {
-				purple_notify_error(me, "LaTeX", "Error while composing the message!", "couldn't make the message.");
+				purple_notify_error(me, "LaTeX", 
+                        "Error while composing the message!", 
+                        "Couldn't make the message.");
 				return FALSE;
 			}
 
 			ptr1 = strstr(&(*tmp2)[pos2], startdelim);
 			continue;
-		}else  {
+		} else {
 			free(shortcut);
 			idstring = malloc(10);
 			sprintf(idstring, "%d\0", idimg);
 
-			// making new message
-			if ((message = malloc(strlen(*tmp2) - pos2 + pos1 + strlen(idstring) + strlen(IMG_BEGIN) + strlen(IMG_END) + 1)) == NULL) {
-				purple_notify_error(me, "LaTeX", "Error while composing the message!", "couldn't make the message.");
+			/* making new message */
+			message = malloc(strlen(*tmp2) - pos2 + pos1 + 
+                    strlen(idstring) + strlen(IMG_BEGIN) + strlen(IMG_END) + 1);
+			if (message  == NULL) {
+				purple_notify_error(me, "LaTeX", 
+                        "Error while composing the message!", 
+                        "Couldn't make the message.");
 				free(idstring);
 				return FALSE;
 			}
@@ -545,8 +540,9 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 				strncpy(message, *tmp2, pos1);
 				message[pos1] = '\0';
 				strcat(message, IMG_BEGIN);
-			} else
+			} else {
 				strcpy(message, IMG_BEGIN);
+            }
 
 			strcat(message, idstring);
 			strcat(message, IMG_END);
@@ -558,7 +554,9 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 
 		free(*tmp2);
 		if ((*tmp2 = malloc(strlen(message) + 1)) == NULL) {
-			purple_notify_error(me, "LaTeX", "Error while composing the message!", "couldn't split the message.");
+			purple_notify_error(me, "LaTeX", 
+                    "Error while composing the message!", 
+                    "Couldn't split the message.");
 			return FALSE;
 		}
 
@@ -569,17 +567,20 @@ static gboolean analyse(char **tmp2, char *startdelim, char *enddelim, gboolean 
 
 		ptr1 = strstr(&(*tmp2)[pos2], startdelim);
 	}
-	if (!smileys && formulas > 0)
+
+	if (!smileys && formulas > 0){
 		return TRUE;
-	else
+    } else {
 		return FALSE;
+    }
 }
 
-static gboolean pidgin_latex_write(PurpleConversation *conv, const char *nom, char *message, PurpleMessageFlags messFlag, char *original)
-{
+static gboolean pidgin_latex_write(PurpleConversation *conv, 
+        const char *nom, char *message, 
+        PurpleMessageFlags messFlag, char *original){
+
 	gboolean logflag;
 
-	// writing log
 	logflag = purple_conversation_is_logging(conv);
 
 	if (logflag) {
@@ -591,18 +592,23 @@ static gboolean pidgin_latex_write(PurpleConversation *conv, const char *nom, ch
 		log = conv->logs;
 		while (log != NULL) {
 			if (strcmp(purple_prefs_get_string("/purple/logging/format"), "html") == 0)
-				purple_log_write((PurpleLog*)log->data, messFlag, nom, time(NULL), message);
+				purple_log_write((PurpleLog*)log->data, 
+                        messFlag, nom, time(NULL), message);
 			else
-				purple_log_write((PurpleLog*)log->data, messFlag, nom, time(NULL), original);
+				purple_log_write((PurpleLog*)log->data, 
+                        messFlag, nom, time(NULL), original);
 			log = log->next;
 		}
 		purple_conversation_set_logging(conv, FALSE);
 	}
 
-	if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_CHAT)
-		purple_conv_chat_write(PURPLE_CONV_CHAT(conv), nom, message, messFlag, time(NULL));
-	else if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_IM)
-		purple_conv_im_write(PURPLE_CONV_IM(conv), nom, message, messFlag, time(NULL));
+	if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_CHAT){
+		purple_conv_chat_write(PURPLE_CONV_CHAT(conv), 
+                nom, message, messFlag, time(NULL));
+    } else if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_IM) {
+		purple_conv_im_write(PURPLE_CONV_IM(conv), 
+                nom, message, messFlag, time(NULL));
+    }
 
 	if (logflag)
 		purple_conversation_set_logging(conv, TRUE);
@@ -623,19 +629,23 @@ static void message_send(PurpleConversation *conv, char **buffer)
 	}
 
 	if (is_blacklisted(*buffer)) {
-		purple_debug_info("LaTeX", "message not analysed, because it contained blacklisted code.\n");
+		purple_debug_info("LaTeX", 
+                "Message not analysed, because it contained blacklisted code.\n");
 		return;
 	}
 
 	if ((tmp2 = malloc(strlen(*buffer) + 1)) == NULL) {
-		// Notify Error
-		purple_notify_error(me, "LaTeX", "Error while analysing the message!", "Out of memory!");
+		purple_notify_error(me, "LaTeX", 
+                "Error while analysing the message!", 
+                "Out of memory!");
 		return;
 	}
 
-	smileys = purple_conversation_get_features(conv) & PURPLE_CONNECTION_ALLOW_CUSTOM_SMILEY;
+	smileys = purple_conversation_get_features(conv) & 
+            PURPLE_CONNECTION_ALLOW_CUSTOM_SMILEY;
 
-	purple_debug_misc("LaTeX", "smiley support: %s\n", smileys ? "yes" : "no");
+	purple_debug_misc("LaTeX", 
+            "smiley support: %s\n", smileys ? "yes" : "no");
 
 	if (smileys) {
 		strcpy(tmp2, *buffer);
@@ -643,55 +653,50 @@ static void message_send(PurpleConversation *conv, char **buffer)
 		if (analyse(&tmp2, KOPETE_TEX, KOPETE_TEX, smileys)) {
 			free(*buffer);
 			*buffer = tmp2;
-		}else  {
+		} else {
 			free(tmp2);
 		}
 	}
 }
 
-static void message_send_chat(PurpleAccount *account, char **buffer, int id)
-{
+static void message_send_chat(PurpleAccount *account, char **buffer, int id){
 	PurpleConnection *conn = purple_account_get_connection(account);
 	message_send(purple_find_chat(conn, id), buffer);
 }
 
-static void message_send_im(PurpleAccount *account, const char *who, char **buffer)
-{
+static void message_send_im(PurpleAccount *account, const char *who, char **buffer){
 	message_send(purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, who, account), buffer);
 }
 
-static gboolean message_receive(PurpleAccount *account, const char *who, char **buffer, PurpleConversation *conv, PurpleMessageFlags flags)
-{
+static gboolean message_receive(PurpleAccount *account, 
+        const char *who, char **buffer, 
+        PurpleConversation *conv, PurpleMessageFlags flags){
 	char *tmp2;
-//  gboolean smileys;
 
 	purple_debug_info("LaTeX", "Writing Message: %s\n", *buffer);
 
-	// if nothing to do
+	/* if nothing to do */
 	if (strstr(*buffer, KOPETE_TEX) == NULL) {
 		return FALSE;
 	}
 
 	if (is_blacklisted(*buffer)) {
-		purple_debug_info("LaTeX", "message not analysed, because it contained blacklisted code.\n");
+		purple_debug_info("LaTeX", 
+                "Message not analysed, because it contained blacklisted code.\n");
 		return FALSE;
 	}
 
 	if ((tmp2 = malloc(strlen(*buffer) + 1)) == NULL) {
-		// Notify Error
-		purple_notify_error(me, "LaTeX", "Error while analysing the message!", "Out of memory!");
+		purple_notify_error(me, "LaTeX", 
+                "Error while analysing the message!", 
+                "Out of memory!");
 		return FALSE;
 	}
 
 	strcpy(tmp2, *buffer);
 
-//  smileys = purple_conversation_get_features(conv) & PURPLE_CONNECTION_ALLOW_CUSTOM_SMILEY;
-
-//  purple_debug_misc("LaTeX", "smiley support: %s\n", smileys ? "yes" : "no");
-
 	if (analyse(&tmp2, KOPETE_TEX, KOPETE_TEX, FALSE)) {
 		pidgin_latex_write(conv, who, tmp2, flags, *buffer);
-
 		free(tmp2);
 		return TRUE;
 	}
@@ -701,12 +706,10 @@ static gboolean message_receive(PurpleAccount *account, const char *who, char **
 	return FALSE;
 }
 
-static gboolean plugin_load(PurplePlugin *plugin)
-{
+static gboolean plugin_load(PurplePlugin *plugin){
 	void *conv_handle = purple_conversations_get_handle();
 
 	me = plugin;
-
 	purple_signal_connect(conv_handle, "sending-im-msg",
 			      plugin, PURPLE_CALLBACK(message_send_im), NULL);
 
@@ -726,46 +729,54 @@ static gboolean plugin_load(PurplePlugin *plugin)
 
 static gboolean plugin_unload(PurplePlugin * plugin)
 {
-	void *conv_handle = purple_conversations_get_handle();
-
-	purple_signal_disconnect(conv_handle, "sending-im-msg", plugin, PURPLE_CALLBACK(message_send_im));
-	purple_signal_disconnect(conv_handle, "sending-chat-msg", plugin, PURPLE_CALLBACK(message_send_chat));
-	purple_signal_disconnect(conv_handle, "writing-im-msg", plugin, PURPLE_CALLBACK(message_receive));
-	purple_signal_disconnect(conv_handle, "writing-chat-msg", plugin, PURPLE_CALLBACK(message_receive));
+	void *conv_handle = purple_conversations_get_handle(); 
+	purple_signal_disconnect(conv_handle, 
+            "sending-im-msg", plugin, 
+            PURPLE_CALLBACK(message_send_im));
+	purple_signal_disconnect(conv_handle, 
+            "sending-chat-msg", plugin, 
+            PURPLE_CALLBACK(message_send_chat));
+	purple_signal_disconnect(conv_handle, 
+            "writing-im-msg", plugin, 
+            PURPLE_CALLBACK(message_receive));
+	purple_signal_disconnect(conv_handle, 
+            "writing-chat-msg", plugin, 
+            PURPLE_CALLBACK(message_receive));
 
 	me = NULL;
-
 	purple_debug_info("LaTeX", "LaTeX unloaded\n");
 
 	return TRUE;
 }
 
-
-static PurplePluginInfo info =
-{
+static PurplePluginInfo info = {
 	PURPLE_PLUGIN_MAGIC,
 	PURPLE_MAJOR_VERSION,
 	PURPLE_MINOR_VERSION,
-	PURPLE_PLUGIN_STANDARD,                       /**< type           */
-	PIDGIN_PLUGIN_TYPE,                                       /**< ui_requirement */
-	0,                                          /**< flags          */
-	NULL,                                       /**< dependencies   */
-	PURPLE_PRIORITY_DEFAULT,                      /**< priority       */
+	PURPLE_PLUGIN_STANDARD,                 /**< type           */
+	PIDGIN_PLUGIN_TYPE,                     /**< ui_requirement */
+	0,                                      /**< flags          */
+	NULL,                                   /**< dependencies   */
+	PURPLE_PRIORITY_DEFAULT,                /**< priority       */
 
-	LATEX_PLUGIN_ID,                            /**< id             */
+	LATEX_PLUGIN_ID,                        /**< id             */
 	"LaTeX",                                /**< name           */
 	"1.4",                                  /**< version        */
 	/**  summary        */
 	"To display LaTeX formula into Pidgin conversation.",
 	/**  description    */
-	"Put LaTeX-code between $$ ... $$ markup to have it displayed as Picture in your conversation.\nRemember that your contact needs an similar plugin or else he will just see the pure LaTeX-code\nYou must have LaTeX and dvipng installed (in your PATH)",
-	"Benjamin Moll <qjuh@users.sourceforge.net>\nNicolas Schoonbroodt <nicolas@ffsa.be>\nNicolai Stange <nic-stange@t-online.de>", /**< author       */
-	WEBSITE,                                    /**< homepage       */
-	plugin_load,                                /**< load           */
-	plugin_unload,                              /**< unload         */
-	NULL,                                       /**< destroy        */
-	NULL,                                       /**< ui_info        */
-	NULL,                                       /**< extra_info     */
+	"Put LaTeX-code between $$ ... $$ markup to have it displayed as " 
+    "Picture in your conversation.\nRemember that your contact needs "
+    "an similar plugin or else he will just see the pure LaTeX-code\nYou "
+    "must have LaTeX and dvipng installed (in your PATH)",
+	"Benjamin Moll <qjuh@users.sourceforge.net>\nNicolas Schoonbroodt "
+    "<nicolas@ffsa.be>\nNicolai Stange <nic-stange@t-online.de>", /**< author       */
+	WEBSITE,                                /**< homepage       */
+	plugin_load,                            /**< load           */
+	plugin_unload,                          /**< unload         */
+	NULL,                                   /**< destroy        */
+	NULL,                                   /**< ui_info        */
+	NULL,                                   /**< extra_info     */
 	NULL,
 	NULL,
 	NULL,
@@ -774,11 +785,7 @@ static PurplePluginInfo info =
 	NULL
 };
 
-
-
 static void
-init_plugin(PurplePlugin *plugin)
-{
-}
+init_plugin(PurplePlugin *plugin) { }
 
 PURPLE_INIT_PLUGIN(LaTeX, init_plugin, info)
