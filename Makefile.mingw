@@ -1,0 +1,89 @@
+#
+# pidgin-latex Makefile
+#
+# Copyright 2004-2009 Edouard Geuten <thegrima AT altern DOT org>
+#
+# Heavily inspired and copied from :
+# Gaim Extended Preferences Plugin Main Makefile
+# Copyright 2004-2009 Kevin Stange <extprefs@simguy.net>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
+CC := gcc
+LIBTOOL := libtool
+
+# the following is taken from Gaim-1.5.0 Makefile.mingw in src-dir
+#
+# PATHS
+#
+
+INCLUDE_DIR :=		.
+PIDGIN_TREE_TOP :=		../pidgin-2.5.1
+include $(PIDGIN_TREE_TOP)/libpurple/win32/global.mak
+
+
+##
+## VARIABLE DEFINITIONS
+##
+# Compiler and Linker Options
+
+CFLAGS =
+
+DEFINES =
+
+LDFLAGS =
+
+WINDRES := windres
+
+##
+## INCLUDE PATHS
+##
+
+INCLUDE_PATHS = -I$(PIDGIN_IDLETRACK_TOP) \
+      -I$(PIDGIN_TREE_TOP) \
+      -I$(PIDGIN_TOP) \
+      -I$(PIDGIN_TOP)/win32 \
+      -I$(GTK_TOP)/include \
+      -I$(GTK_TOP)/include/gtk-2.0 \
+      -I$(GTK_TOP)/include/glib-2.0 \
+      -I$(GTK_TOP)/include/pango-1.0 \
+      -I$(GTK_TOP)/include/atk-1.0 \
+      -I$(GTK_TOP)/lib/glib-2.0/include \
+      -I$(GTK_TOP)/lib/gtk-2.0/include
+
+LIB_PATHS =		-L$(GTK_TOP)/lib \
+			-L$(PIDGIN_TOP) \
+			-L$(PIDGIN_INSTALL_DIR)
+
+PIDGIN_LATEX = LaTeX
+
+PIDGIN_CFLAGS  = -I$(PIDGIN_TOP)
+GTK_CFLAGS   =
+PIDGIN_LIBS    = -lpurple
+GTK_LIBS     = -lgtk-win32-2.0
+PIDGIN_LATEX_LIBS = -lintl -lglib-2.0
+PIDGIN_LATEX_CFLAGS=
+
+all: $(PIDGIN_LATEX).dll
+
+$(PIDGIN_LATEX).dll: $(PIDGIN_LATEX).o
+	$(CC) -shared $(CFLAGS) $< -o $@ $(PIDGIN_LIBS) $(GTK_LIBS) $(PIDGIN_LATEX_LIBS) $(LIB_PATHS) -Wl,--export-dynamic -Wl,-soname
+
+$(PIDGIN_LATEX).o:$(PIDGIN_LATEX).c $(PIDGIN_LATEX).h
+	$(CC) $(CFLAGS) $(INCLUDE_PATHS) -c $< -o $@ $(PIDGIN_LATEX_CFLAGS) $(PIDGIN_CFLAGS) $(GTK_CFLAGS)
+
+clean:
+	rm -rf *.o *.c~ *.dll *.la .libs

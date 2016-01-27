@@ -1,0 +1,73 @@
+*************
+Version 1.5
+*************
+	- fixed a bug where " got escaped to &quot; in LaTeX code
+	- Pidgin-LaTeX now uses foreground and background colors of the conversation for the generated image
+
+*************
+Version 1.4
+*************
+	- fixed a serious bug in the blacklisting, that made it possible to execute malware on receivers PC
+
+*************
+Version 1.3
+*************
+	- changed the image type used back to PNG, because we have better antialiasing there
+	- now using dvipng for DVI->PNG conversion instead of dvips and ImageMagick
+	- simplified a lot of calls because of good support by the API
+	- fixed a bug concerning wrong nickname display
+	- fixed a minor bug caused by system()
+	- fixed some Windows-related bugs
+
+*************
+Version 1.2
+*************
+	- added support for LaTeX in Chats like IRC
+	- minor bugs fixed
+
+*************
+Version 1.1
+*************
+	- fix STILL_ACTIVE bug on windows
+	- some minor bugs fixed
+
+*************
+Version 1.0
+*************
+	- changes for the new API of Pidgin applied
+	- added getfilename()
+	- changed tempfile-generation using purple-function
+	- some more blacklist-checking
+
+*************
+Version 0.4
+*************
+        - windows port
+	- < 1024 bytes image bug corrected
+
+
+*************
+Version 0.3
+*************
+	- no more need of tex2im
+	- fix crash bug when no image were created
+	- fix gaim-encryption bug
+	- now use $$ markup (compatibility with KopeteTeX) 
+		old markup ([tex] ... [/tex]) will pobably be erased
+		later, so please use new system (if you have any
+		objection, speak from that with me
+
+
+*************
+version 0.2
+*************
+	- Work with gaim v1.0.3 
+	- The logs of the conversation now log the original message with the
+	  [tex]...[/tex] markup
+	- Now compile easier with a Makefile
+	
+***********
+Version 0.1
+***********
+	- Initial version
+	- site http://sourceforge.net/projects/gaim-latex/
