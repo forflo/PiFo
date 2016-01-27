@@ -331,7 +331,6 @@ static gboolean latex_to_image(const char *latex_expression,
     goto out;
 
 error:
-
     unlink(file_tex);
     unlink(file_dvi);
     unlink(*filename_png);
@@ -347,8 +346,6 @@ error:
     return FALSE;
 
 out:
-    return TRUE;
-
     unlink(file_tex);
     unlink(file_dvi);
 
