@@ -31,7 +31,7 @@ else
   LIB_INSTALL_DIR = $(PREFIX)/lib/pidgin
 endif
 
-PIDGIN_LATEX = LaTeX
+PIDGIN_LATEX = latex
 
 PIDGIN_CFLAGS  = $(shell pkg-config pidgin --cflags)
 GTK_CFLAGS   = $(shell pkg-config gtk+-2.0 --cflags)
