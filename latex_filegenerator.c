@@ -15,83 +15,154 @@ static const char *get_format_string(enum format fmt){
     return format_table[fmt];
 }
 
+static GString *fgcolor_as_string();
+static GString *bgcolor_as_string();
+
+static GString *fgcolor_as_string(){
+    GString *result = g_string_new(NULL);
+	int rgb;
+	char const *pidgin_fgcolor;
+    /* Gather some information about the current pidgin settings
+     * so that we can populate the latex template file appropriately */
+	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/fgcolor"), "")) {
+        g_string_append("0,0,0");
+	} else {
+		pidgin_fgcolor = purple_prefs_get_string("/pidgin/conversations/fgcolor");
+		rgb = strtol(pidgin_fgcolor + 1, NULL, 16);
+		purple_debug_info("LaTeX", "Numerical: %d\n", rgb);
+		purple_debug_info("LaTeX", "Found foregroundcolor '%s'\n", pidgin_fgcolor);
+		g_string_append_printf(result, "%d,%d,%d", rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
+	}
+	purple_debug_info("LaTeX", "Using '%s' for foreground\n", fgcolor);
+
+    return result;
+}
+
+static GString *fgcolor_as_string(){
+    GString *result = g_string_new(NULL);
+	int rgb;
+	char const *pidgin_bgcolor;
+
+	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/bgcolor"), "")) {
+        g_string_append(result, "255,255,255");
+	} else {
+		pidgin_bgcolor = purple_prefs_get_string("/pidgin/conversations/bgcolor");
+		rgb = strtol(pidgin_bgcolor + 1, NULL, 16);
+		purple_debug_info("LaTeX", "Numerical: %d\n", rgb);
+		purple_debug_info("LaTeX", "Found backgroundcolor '%s'\n", pidgin_bgcolor);
+		g_string_append_printf(result, "%d,%d,%d", rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
+	}
+	purple_debug_info("LaTeX", "Using '%s' for background\n", bgcolor);
+
+    return result;
+}
+
+#define LATEX_MATH_TEMPLATE (FORMULA,FCOLOR,BCOLOR) \
+    "\\documentclass[12pt]{article}\\usepackage{color}"  \
+    "\\usepackage[dvips]{graphicx}\\usepackage{amsmath}" \
+    "\\usepackage{amssymb}\\usepackage[utf8]{inputenc}"  \
+    "\\pagestyle{empty}" \
+    "\\definecolor{fgcolor}{RGB}" "{" #FCOLOR "}" \
+    "\\definecolor{bgcolor}{RGB}" "{" #BCOLOR "}" \
+    "\\begin{document}\\pagecolor{bgcolor}\\color{fgcolor}" \
+    "\\begin{gather*}" \
+        #FORMULA \
+    "\\end{gather*}" \
+    "\\end{document}"
+
+#define LATEX_LST_TEMPLATE (LANGUAGE,FCOLOR,BCOLOR,LISTING) \
+    "\\documentclass[12pt]{article}\\usepackage{color}"  \
+    "\\usepackage[dvips]{graphicx}\\usepackage{amsmath}" \
+    "\\usepackage{amssymb}\\usepackage[utf8]{inputenc}"  \
+    "\\usepackage{listings}\\pagestyle{empty}" \
+    "\\definecolor{fgcolor}{RGB}" "{" #FCOLOR "}" \
+    "\\definecolor{bgcolor}{RGB}" "{" #BCOLOR "}" \
+    "\\lstset{numbers=none,numberstyle=\\small{"\
+    "\\ttfamily{}},stepnumber=1,numbersep=4pt} \\lstset{tabsize=4}"\
+    "\\lstset{breaklines=true,breakatwhitespace=true}"\
+    "\\lstset{frame=none}\\lstset{language=" #LANGUAGE "}" \
+    "\\begin{document}\\pagecolor{bgcolor}\\color{fgcolor}" \
+    "\\begin{lstlisting}"\
+        #LISTING \
+    "\\end{lstlisting}" \
+    "\\end{document}"
+
+static const char *graphviz_command = "dot";
+static const char *formula_command = "formula";
+static const char *allowed_languages[] = {
+    "ada",
+    "haskell",
+    "bash",
+    "awk",
+    "c",
+    "cplusplus",
+    "html",
+    "java",
+    "lisp",
+    "lua",
+    "make",
+    "octave",
+    "perl",
+    "python",
+    "ruby",
+    "vhdl",
+    "verilo",
+    "xml",
+    "latex"
+}
+
+
 /* Used to parse the command and trigger appropriate compilier runs */
 static GString *dispatch_command(GString *command, GString *snippet);
 
 static GString *generate_latex_lstlisting(GString *listing, 
-
         GString *language, const char *filename);
 
 /* returns filename containing pic of formula*/
 static GString generate_latex_formula(GString *formula, 
         const char *filename);
 
+static GString *get_unique_tmppath(void){
+    FILE *temp;
+    char *filename_temp;
+    GString *result = g_string_new(NULL);
 
+    temp = purple_mkstemp(&filename_temp,TRUE);
+    fclose(temp);
+    unlink(filename_temp);
 
-/* old */
-static gboolean latex_to_image(const char *latex_expression, 
-        char **filename_png, enum format format){
+    return result;
+}
+
+static gboolean generate_latex_formula(GString *formula, 
+        char **filename_png){
     FILE *transcript_file;
     FILE *temp;
-
-    char *filename_temp = NULL;
     char *dirname_temp = NULL;
-
-    char *file_tex = NULL;
-    char *file_dvi = NULL;
-
-    char fgcolor[16], bgcolor[16];
     gboolean exec_ok;
+
+    GString *fgcolor = fgcolor_as_string, 
+            *bgcolor = bgcolor_as_string;
+
+    GString *tmpfilepath = get_unique_tmppath();
+    GString *texfilepath = g_string_new(tmpfilepath->str);
+    GString *dvifilepath = g_string_new(tmpfilepath->str);
+    GString *pngfilepath = g_string_new(tmpfilepath->str);
+
+    g_string_append(texfilepath, ".tex");
+    g_string_append(dvifilepath, ".dvi");
+    g_string_append(pngfilepath, ".png");
+
+	dirname_temp = getdirname(textfilepath->str);
     
-    /* The following creats temporary files */
-    temp = purple_mkstemp(&filename_temp,TRUE);
-    unlink(filename_temp);
-    fclose(temp);
-
-    file_tex = malloc((strlen(filename_temp) + 5) * sizeof(char));
-    file_dvi = malloc((strlen(filename_temp) + 5) * sizeof(char));
-    *filename_png = malloc((strlen(filename_temp) + 5) * sizeof(char));
-
-    if(!(filename_temp && file_tex && file_dvi && *filename_png))
-    {
-        purple_notify_error(me, "LaTeX", 
-                "Error while running LaTeX!", 
-                "Couldn't create temporary files.");
-        goto error;
-    }
-    
-    /* Create filenames based on filename_temp */
-    strcpy(file_tex, filename_temp);
-    strcat(file_tex, ".tex");
-    strcpy(file_dvi, filename_temp);
-    strcat(file_dvi, ".dvi");
-    strcpy(*filename_png, filename_temp);
-    strcat(*filename_png, ".png");
-
-    /* EDIT: FG color is missing! */
-
-	if (!(transcript_file = fopen(file_tex, "w"))) 
+	if (!(transcript_file = fopen(texfilepath->str, "w"))) 
         goto error;
 
     /* Generate latex template file */
-    switch (format) {
-        case FORMULA:
-	        fprintf(transcript_file, HEADER HEADER_FCOLOR "{%s}" 
-                    HEADER_BCOLOR "{%s}" HEADER_DOC BEG_MATH "%s" END_MATH
-                    FOOTER, fgcolor, bgcolor, latex_expression);
-            break;
-        case LISTING:
-	        fprintf(transcript_file, HEADER HEADER_FCOLOR "{%s}" 
-                    HEADER_BCOLOR "{%s}" HEADER_DOC BEG_LISTING "\n%s\n" END_LISTING
-                    FOOTER, fgcolor, bgcolor, latex_expression);
-            break;
-        default:
-            goto error;
-            break;
-    }
-	fclose(transcript_file);
+	fprintf(transcript_file, LATEX_MATH_TEMPLATE(%s,%s,%s), 
+            formula->str, fgcolor, bgcolor);
 
-	dirname_temp = getdirname(file_tex);
+	fclose(transcript_file);
 
 	if (!dirname_temp || chdir(dirname_temp)) {
 		if (dirname_temp) 
@@ -107,14 +178,16 @@ static gboolean latex_to_image(const char *latex_expression,
     /* Make sure that latex cannot do shell escape, even
      * if the local default config says so! */
 	char * const latexopts[] = { 
-        "latex", "--no-shell-escape", "--interaction=nonstopmode", 
-        file_tex, NULL
+        "latex", 
+        "--no-shell-escape", 
+        "--interaction=nonstopmode", 
+        texfilepath->str, NULL
     };
 
 	char * const dvipngopts[] = { 
         "dvipng", "-Q", "10", "-T", 
         "tight", "--follow", "-o", 
-        *filename_png, file_dvi, NULL
+        pngfilepath->str, dvifilepath->str, NULL
     };
 
     /* Start Latex and dvipng */
@@ -124,7 +197,6 @@ static gboolean latex_to_image(const char *latex_expression,
 	purple_debug_info("LaTeX", 
             "Image creation exited with status '%d'\n", 
             !exec_ok);
-
     goto out;
 
 error:

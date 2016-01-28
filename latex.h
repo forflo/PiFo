@@ -69,20 +69,6 @@
 #define LATEX_PLUGIN_ID "qjuh-LaTeX"
 #define WEBSITE "http://sourceforge.net/projects/pidgin-latex/"
 
-#define HEADER "\\documentclass[12pt]{article}\\usepackage{color}\\usepackage[dvips]{graphicx}\\usepackage{amsmath}\\usepackage{amssymb}\\usepackage[utf8]{inputenc}\\usepackage{listings}\\pagestyle{empty}"
-#define HEADER_BCOLOR "\\definecolor{bgcolor}{RGB}"
-#define HEADER_FCOLOR "\\definecolor{fgcolor}{RGB}"
-#define HEADER_DOC "\\begin{document}\\pagecolor{bgcolor}\\color{fgcolor}"
-#define HEADER_LISTING "\\lstset{numbers=none,numberstyle=\\small{\\ttfamily{}},stepnumber=1,numbersep=4pt} \\lstset{tabsize=4} \\lstset{breaklines=true,breakatwhitespace=true} \\lstset{frame=none}\\lstset{language=Haskell}"
-
-#define BEG_LISTING "\\begin{lstlisting}"
-#define END_LISTING "\\end{lstlisting}"
-
-#define FOOTER "\\end{document}"
-
-#define BEG_MATH "\\begin{gather*}"
-#define END_MATH "\\end{gather*}"
-
 #define FILTER_AND "&amp;"
 #define FILTER_LT "&lt;"
 #define FILTER_GT "&gt;"
