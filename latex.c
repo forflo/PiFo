@@ -58,102 +58,6 @@ static void open_log(PurpleConversation *conv)
                 conv, time(NULL), NULL));
 }
 
-/* Cuts off the file name in file leaving you with just the path.
- * The function also makes a new copy of the string on the heap. 
- */
-static char* getdirname(const char const *file){
-	char *s = NULL;
-	char *r = NULL;
-	s = strrchr(file, G_DIR_SEPARATOR);
-
-    /* Is file just a pure filename without dir? */
-	if (!s) { 			
-        /* Here is no standard-, but GNU-bahaviour of getcwd assumed.
-		   Note that msdn.microsoft.com defines the same as GNU. */
-	    return getcwd(NULL, 0);
-	}
-
-    /* Get the G_DIR_SEPARATOR at the end of directory-string */
-	s += 1; 	
-    r = malloc(s - file + sizeof(char));
-	if (r){
-		memcpy(r, file, s - file);
-		r[(s - file) / sizeof(char)] = '\0';
-	}
-	return r;
-}
-
-/* Cuts off the path part of file leaving you with just the
- * filename. The Function also generates a new string on the heap.
- */
-static char* getfilename(const char const *file){
-	char *s = NULL;
-	char *r = NULL;
-	s = strrchr(file, G_DIR_SEPARATOR);
-
-    /* Is file just a pure filename without dir? */
-	if (!s) {
-		r = malloc((strlen(file) + 1) * sizeof(char));
-		strcpy(r, file);
-		return r;
-	}
-
-	s += 1;
-	r = malloc((strlen(file) + 1) * sizeof(char) + file - s);
-	if (r) {
-		memcpy(r, s, strlen(file) * sizeof(char) + file - s);
-		r[strlen(file) + (file - s) / sizeof(char)] = '\0';
-	}
-	return r;
-}
-
-/* Helper function for command execution */
-static int execute(const char *prog, char * const cmd[]){
-	int i = 0;
-	int exitcode = -1, exitstatus;
-	pid_t child_id = 0;
-
-	purple_debug_misc("[execute()] LaTeX", "'%s' started\n", cmd[0]);
-
-    child_id = fork();
-	switch (child_id) {
-        case 0: 
-            /* In child */
-		    exitcode = execvp(prog, cmd);
-		    exit(exitcode);
-            break;
-        case -1:
-            purple_debug_error("LaTeX", 
-                    "[execute()] Error while executing '%s'", 
-                    "Could not fork");
-
-            return exitcode;
-            break;
-        default:
-            /* In parent. Nothing to do */
-            break;
-	}
-
-	if (wait(&exitstatus) > 0) {
-		if (WIFEXITED(exitstatus)) {
-			exitcode = WEXITSTATUS(exitstatus);
-			purple_debug_info("LaTeX", 
-                    "[execute()] '%s' ended normally with exitcode '%d'\n", 
-                    prog, exitcode);
-		} else {
-			purple_debug_error("LaTeX", 
-                    "[execute()] '%s' ended abnormally via the signal '%d'\n", 
-                    prog, WTERMSIG(exitstatus));
-        }
-	} else {
-		purple_debug_error("LaTeX", 
-                "[execute()] While executing '%s' the following error occured: '%s'(%d)\n", 
-                prog, strerror(errno), errno);
-	}
-
-	return exitcode;
-}
-
 static gboolean is_blacklisted(const char *message){
 	char *not_secure[NB_BLACKLIST] = BLACKLIST;
 	int reti;
@@ -176,6 +80,49 @@ static gboolean is_blacklisted(const char *message){
 	}
 
 	return FALSE;
+}
+
+static GString *fgcolor_as_string();
+
+static GString *bgcolor_as_string();
+
+static GString *fgcolor_as_string(){
+    GString *result = g_string_new(NULL);
+	int rgb;
+	char const *pidgin_fgcolor;
+    /* Gather some information about the current pidgin settings
+     * so that we can populate the latex template file appropriately */
+	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/fgcolor"), "")) {
+        g_string_append("0,0,0");
+	} else {
+		pidgin_fgcolor = purple_prefs_get_string("/pidgin/conversations/fgcolor");
+		rgb = strtol(pidgin_fgcolor + 1, NULL, 16);
+		purple_debug_info("LaTeX", "Numerical: %d\n", rgb);
+		purple_debug_info("LaTeX", "Found foregroundcolor '%s'\n", pidgin_fgcolor);
+		g_string_append_printf(result, "%d,%d,%d", rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
+	}
+	purple_debug_info("LaTeX", "Using '%s' for foreground\n", fgcolor);
+
+    return result;
+}
+
+static GString *fgcolor_as_string(){
+    GString *result = g_string_new(NULL);
+	int rgb;
+	char const *pidgin_bgcolor;
+
+	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/bgcolor"), "")) {
+        g_string_append(result, "255,255,255");
+	} else {
+		pidgin_bgcolor = purple_prefs_get_string("/pidgin/conversations/bgcolor");
+		rgb = strtol(pidgin_bgcolor + 1, NULL, 16);
+		purple_debug_info("LaTeX", "Numerical: %d\n", rgb);
+		purple_debug_info("LaTeX", "Found backgroundcolor '%s'\n", pidgin_bgcolor);
+		g_string_append_printf(result, "%d,%d,%d", rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
+	}
+	purple_debug_info("LaTeX", "Using '%s' for background\n", bgcolor);
+
+    return result;
 }
 
 static gboolean latex_to_image(const char *latex_expression, 
@@ -217,33 +164,7 @@ static gboolean latex_to_image(const char *latex_expression,
     strcpy(*filename_png, filename_temp);
     strcat(*filename_png, ".png");
 
-    /* Gather some information about the current pidgin settings
-     * so that we can populate the latex template file appropriately */
-	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/fgcolor"), "")) {
-		strcpy(fgcolor, "0,0,0");
-	} else {
-		int rgb;
-		char const *pidgin_fgcolor;
-		pidgin_fgcolor = purple_prefs_get_string("/pidgin/conversations/fgcolor");
-		purple_debug_info("LaTeX", "found foregroundcolor '%s'\n", pidgin_fgcolor);
-		rgb = strtol(pidgin_fgcolor + 1, NULL, 16);
-		purple_debug_info("LaTeX", "numerical: %d\n", rgb);
-		sprintf(fgcolor, "%d,%d,%d", rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
-	}
-	purple_debug_info("LaTeX", "Using '%s' for foreground\n", fgcolor);
-
-	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/bgcolor"), "")) {
-		strcpy(bgcolor, "255,255,255");
-	} else {
-		int rgb;
-		char const *pidgin_bgcolor;
-		pidgin_bgcolor = purple_prefs_get_string("/pidgin/conversations/bgcolor");
-		purple_debug_info("LaTeX", "found backgroundcolor '%s'\n", pidgin_bgcolor);
-		rgb = strtol(pidgin_bgcolor + 1, NULL, 16);
-		purple_debug_info("LaTeX", "numerical: %d\n", rgb);
-		sprintf(bgcolor, "%d,%d,%d", rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
-	}
-	purple_debug_info("LaTeX", "Using '%s' for background\n", bgcolor);
+    /* EDIT: FG color is missing! */
 
 	if (!(transcript_file = fopen(file_tex, "w"))) 
         goto error;
@@ -349,135 +270,180 @@ static const char *get_format_string(enum format fmt){
     return format_table[fmt];
 }
 
+static GPtrArray *get_command(GString *buffer){
+    GPtrArray *commands = g_ptr_array_new();
+    GString *command = NULL
+    char current;
+    int i;
+
+    for (i=0; i<buffer->len; i++){
+
+        if (buffer->str[i] == '\\') {
+            command = g_string_new(NULL);
+            i++;
+            while (g_ascii_isalnum(buffer->str[i])){
+                g_string_append_c(command, buffer->str[i++]);
+            }
+
+            g_ptr_array_add(commands, command);
+        }
+    }
+
+    return commands;
+}
+
+static GPtrArray *get_snippets(GString *buffer){
+    GPtrArray *snippets = g_ptr_array_new();
+    GString *snippet = NULL;
+    int i;
+    int stackcnt = 0;
+    char current;
+
+
+    for (i=0; i<buffer->len; i++){
+        current = buffer->str[i];
+
+        if (current == '{' && stackcnt == 0){
+            snippet = g_string_new(NULL);
+            stackcnt++;
+            continue;
+        }
+
+        if (stackcnt > 0) {
+            if (current == '{'){
+                stackcnt++;
+            }
+
+            if (current == '}'){
+                stackcnt--;
+                if (stackcnt == 0)
+                    g_ptr_array_add(snippets, snippet);
+            }
+
+            g_string_append_c(snippet, current);
+        }
+    }
+
+    return snippets;
+}
+
+static gboolean replace(char **message, GString *command, GString *snippet, int id){
+    GString *replacer = g_string_new(IMG_BEG);
+    GString *to_replace = g_string_new("\\");
+    char idbuffer[10];
+    char *new_msg;
+
+    g_string_append(to_replace, command->str);
+    g_string_append(to_replace, snippet->str);
+
+	sprintf(idbuffer, "%d\0", id);
+    g_string_append(replacer, idbuffer);
+    g_string_append(replacer, IMG_END);
+
+
+    new_msg = str_replace(*message, to_replace->str, replacer->str);
+    free(*message);
+    *message = new_msg;
+
+    return TRUE;
+}
+
+static char *str_replace(char *orig, char *rep, char *with);
+
+/* Credit to http://stackoverflow.com/questions/779875/
+ * what-is-the-function-to-replace-string-in-c*/
+static char *str_replace(char *orig, char *rep, char *with) {
+    char *result; // the return string
+    char *ins;    // the next insert point
+    char *tmp;    // varies
+    int len_rep;  // length of rep
+    int len_with; // length of with
+    int len_front; // distance between rep and end of last rep
+    int count;    // number of replacements
+
+    if (!orig)
+        return NULL;
+    if (!rep)
+        rep = "";
+    len_rep = strlen(rep);
+    if (!with)
+        with = "";
+    len_with = strlen(with);
+
+    ins = orig;
+    for (count = 0; tmp = strstr(ins, rep); ++count) {
+        ins = tmp + len_rep;
+    }
+
+    // first time through the loop, all the variable are set correctly
+    // from here on,
+    //    tmp points to the end of the result string
+    //    ins points to the next occurrence of rep in orig
+    //    orig points to the remainder of orig after "end of rep"
+    tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+    if (!result)
+        return NULL;
+
+    while (count--) {
+        ins = strstr(orig, rep);
+        len_front = ins - orig;
+        tmp = strncpy(tmp, orig, len_front) + len_front;
+        tmp = strcpy(tmp, with) + len_with;
+        orig += len_front + len_rep; // move to next "end of rep"
+    }
+    strcpy(tmp, orig);
+    return result;
+}
+
+static int load_img(const char *resulting_png){
+    gchar *filedata;
+    gsize size;
+    GError *error;
+    int img_id = 0;
+
+	if (!g_file_get_contents(resulting_png, &filedata, &size, &error)) {
+		purple_notify_error(me, "LaTeX", 
+                "Error while reading the generated image!", error->message);
+		g_error_free(error);
+		free(shortcut);
+		return FALSE;
+	}
+
+	img_id = purple_imgstore_add_with_id(filedata, 
+            MAX(1024, size), getfilename(resulting_png));
+
+	if (img_id == 0) {
+		purple_notify_error(me, "LaTeX", 
+                "Error while reading the generated image!", 
+                "Failed to store image.");
+		return -1;
+	}
+
+    return img_id;
+}
+
 //TODO check for mem leaks
-static gboolean analyse(char **tmp2){
+static gboolean modify_message(char **message){
     enum format format = get_format(*tmp2);
     const char *startdelim = get_format_string(format);
     const char *enddelim = KOPETE_END;
 
-	int pos1, pos2, idimg, formulas = 0;
-	char *ptr1, *ptr2;
-	char *file_png = NULL;
+    int i;
 
-	ptr1 = strstr(*tmp2, startdelim);
+    GPtrArray *snippets = get_snippets(*message);
+    GPtrArray *commands = get_commands(*message);
 
-	while (ptr1 != NULL) {
-		char *tex, *tex2, *message, *filter, *idstring, *shortcut;
-		size_t size;
-		gchar *filedata;
-		GError *error = NULL;
+    if (snippets->len != commands->len){
+		purple_notify_error(me, "LaTeX", 
+                "Error while analysing the message!", 
+                "Different amounts of snippets and commands!");
+    }
 
-		pos1 = strlen(*tmp2) - strlen(ptr1);
+    for (i=0; i<commands->len; i++){
+        //replace parts in message by replacement_text
+    }
 
-		/* Have to ignore the first 2 char ("$$") --> & [2] */
-		ptr2 = strstr(&ptr1[strlen(startdelim)], enddelim);
-		if (ptr2 == NULL)
-			return FALSE;
-
-		pos2 = strlen(*tmp2) - strlen(ptr2) + strlen(enddelim);
-
-		tex = malloc(pos2 - pos1 - strlen(enddelim) - strlen(startdelim) + 1);
-		if (tex == NULL) {
-			purple_notify_error(me, "LaTeX", 
-                    "Error while analysing the message!", 
-                    "Out of memory!");
-			return FALSE;
-		}
-
-		strncpy(tex, &ptr1[strlen(startdelim)], 
-                pos2 - pos1 - strlen(startdelim) - strlen(enddelim));
-		tex[pos2 - pos1 - strlen(startdelim) - strlen(enddelim)] = '\0';
-
-		tex2 = malloc((strlen(tex) + 1) * sizeof(char));
-		strcpy(tex2, tex);
-		tex = purple_unescape_html(tex2);
-
-		purple_debug_misc("LaTeX", "Found LaTeX-Code: %s\n", tex);
-
-		shortcut = malloc((strlen(tex2) + 5) * sizeof(char));
-		strcpy(shortcut, "$$");
-		strcat(shortcut, tex2);
-		strcat(shortcut, "$$");
-		free(tex2);
-
-		/* Creates the image in file_png */
-		if (!latex_to_image(tex, &file_png, format)) {
-			free(tex);
-			free(shortcut);
-			return FALSE;
-		}
-
-		free(tex);
-
-        /* Loading image */
-		if (!g_file_get_contents(file_png, &filedata, &size, &error)) {
-			purple_notify_error(me, "LaTeX", 
-                    "Error while reading the generated image!", error->message);
-			g_error_free(error);
-			free(shortcut);
-			return FALSE;
-		}
-
-		idimg = purple_imgstore_add_with_id(filedata, 
-                MAX(1024, size), getfilename(file_png));
-
-
-		unlink(file_png);
-		free(file_png);
-
-		if (idimg == 0) {
-			purple_notify_error(me, "LaTeX", 
-                    "Error while reading the generated image!", 
-                    "Failed to store image.");
-			free(shortcut);
-			return FALSE;
-		}
-
-		free(shortcut);
-		idstring = malloc(10);
-		sprintf(idstring, "%d\0", idimg);
-
-		/* making new message */
-		message = malloc(strlen(*tmp2) - pos2 + pos1 + 
-                strlen(idstring) + strlen(IMG_BEGIN) + strlen(IMG_END) + 1);
-		if (message  == NULL) {
-			purple_notify_error(me, "LaTeX", 
-                    "Error while composing the message!", 
-                    "Couldn't make the message.");
-			free(idstring);
-			return FALSE;
-		}
-
-		if (pos1 > 0) {
-			strncpy(message, *tmp2, pos1);
-			message[pos1] = '\0';
-			strcat(message, IMG_BEGIN);
-		} else {
-			strcpy(message, IMG_BEGIN);
-        }
-
-		strcat(message, idstring);
-		strcat(message, IMG_END);
-		free(idstring);
-
-		if (pos2 < strlen(*tmp2))
-			strcat(message, &ptr2[strlen(enddelim)]);
-
-		free(*tmp2);
-		if ((*tmp2 = malloc(strlen(message) + 1)) == NULL) {
-			purple_notify_error(me, "LaTeX", 
-                    "Error while composing the message!", 
-                    "Couldn't split the message.");
-			return FALSE;
-		}
-
-		strcpy(*tmp2, message);
-		free(message);
-
-		ptr1 = strstr(&(*tmp2)[pos2], startdelim);
-	}
-
-    return TRUE;
 }
 
 static gboolean pidgin_latex_write(PurpleConversation *conv, 
@@ -498,6 +464,7 @@ static gboolean pidgin_latex_write(PurpleConversation *conv,
                     messFlag, nom, time(NULL), original);
 			log = log->next;
 		}
+
 		purple_conversation_set_logging(conv, FALSE);
 	}
 
@@ -521,7 +488,7 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 	char *temp_buffer;
 	gboolean smileys;
 
-	purple_debug_info("LaTeX", "(message_send()) Sending Message: %s\n", *buffer);
+	purple_debug_info("LaTeX", "[message_send()] Sending Message: %s\n", *buffer);
 
 	if (!contains_work(*buffer)){
 		return;
@@ -544,7 +511,7 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 	if (analyse(&temp_buffer)) {
 		*buffer = temp_buffer;
 	} else {
-        free(temp_buffer);
+        g_free(temp_buffer);
     }
 }
 
@@ -586,11 +553,11 @@ static gboolean message_receive(PurpleAccount *account,
 	purple_debug_info("LaTeX", "[message_receive()] Analyse: %s\n", temp_buffer);
 	if (analyse(&temp_buffer)) {
 		pidgin_latex_write(conv, who, temp_buffer, flags, *buffer);
-		free(temp_buffer);
+		g_free(temp_buffer);
 		return TRUE;
 	}
 
-	free(temp_buffer);
+	g_free(temp_buffer);
 	return FALSE;
 }
 
