@@ -144,24 +144,22 @@ static gboolean generate_graphviz_png(GString *dotcode,
 static gboolean generate_latex_formula(GString *formula, 
         GString **filename);
 
-static gboolean generate_latex_formula(GString *formula, 
-        GString **filename_png){
-    FILE *transcript_file;
-    FILE *temp;
-    char *dirname_temp = NULL;
-    gboolean exec_ok;
-    gboolean returnval = TRUE;
+static gboolean setup_files(GString **tex, 
+        GString **dvi, GString **png,
+        GString **aux, GString **log);
 
-    GString *fgcolor = fgcolor_as_string, 
-            *bgcolor = bgcolor_as_string;
+static gboolean setup_files(GString **tex, 
+        GString **dvi, GString **png,
+        GString **aux, GString **log){
 
-    GString *tmpfilepath = get_unique_tmppath();
-    GString *texfilepath = g_string_new(tmpfilepath->str);
-    GString *dvifilepath = g_string_new(tmpfilepath->str);
-    GString *pngfilepath = g_string_new(tmpfilepath->str);
+    GString *tmpfilepath;
+    tmpfilepath = get_unique_tmppath();
 
-    GString *auxfilepath = g_string_new(tmpfilepath->str);
-    GString *logfilepath = g_string_new(tmpfilepath->str);
+    *tex = g_string_new(tmpfilepath->str);
+    *dvi = g_string_new(tmpfilepath->str);
+    *png = g_string_new(tmpfilepath->str);
+    *aux = g_string_new(tmpfilepath->str);
+    *log = g_string_new(tmpfilepath->str);
 
     g_string_append(texfilepath, ".tex");
     g_string_append(dvifilepath, ".dvi");
@@ -169,14 +167,17 @@ static gboolean generate_latex_formula(GString *formula,
     g_string_append(logfilepath, ".log");
     g_string_append(auxfilepath, ".aux");
 
-	dirname_temp = getdirname(textfilepath->str);
+    return TRUE;
+}
+
+static gboolean chtempdir(GString *path){
+    char *dirname_temp = getdirname(path->str);
 	if (dirname_temp == NULL){
 		purple_notify_error(me, "LaTeX", 
                 "Error while trying to transcript LaTeX!", 
                 "Couldnt allocate memory for path");
 
-        returnval = FALSE;
-        goto out;
+        return FALSE;
 	}
 
     if (chdir(dirname_temp) == -1){
@@ -185,23 +186,15 @@ static gboolean generate_latex_formula(GString *formula,
                 "Couldn't cange to temporary directory");
          
         free(dirname_temp);
-        returnval = FALSE;
-        goto out;
-    }
-    
-	if (!(transcript_file = fopen(texfilepath->str, "w"))){
-		purple_notify_error(me, "LaTeX", 
-                "Error while trying to transcript LaTeX!", 
-                "Error opening file!");
-        returnval = FALSE;
-        goto out;
+        return FALSE;
     }
 
-    /* Generate latex template file */
-	fprintf(transcript_file, LATEX_MATH_TEMPLATE(%s,%s,%s), 
-            formula->str, fgcolor, bgcolor);
-	fclose(transcript_file);
+    return TRUE;
+}
 
+static gboolean exec_latex(GString *pngfilepath, 
+        GString *texfilepath, GString *dvifilepath){
+    gboolean exec_ok;
     /* Make sure that latex cannot do shell escape, even
      * if the local default config says so! */
 	char * const latexopts[] = { 
@@ -221,7 +214,46 @@ static gboolean generate_latex_formula(GString *formula,
 	exec_ok = (execute("latex", latexopts) == 0) &&
               (execute("dvipng", dvipngopts) == 0);
 
-    if (exec_ok){
+    if (exec_ok != 0)
+        return FALSE;
+
+    return TRUE;
+}
+
+static gboolean generate_latex_formula(GString *formula, 
+        GString **filename_png){
+    FILE *transcript_file;
+    gboolean returnval = TRUE;
+
+    GString *fgcolor = fgcolor_as_string();
+            *bgcolor = bgcolor_as_string();
+
+    GString *texfilepath, *dvifilepath, 
+            *pngfilepath, *auxfilepath, *logfilepath
+
+    setup_files(&texfilepath, &dvifilepath, 
+                &pngfilepath, &auxfilepath, &logfilepath);
+
+    if (!chtempdir(texfilepath->str)){
+        returnval = FALSE;
+        goto out;
+    } 
+
+	if (!(transcript_file = fopen(texfilepath->str, "w"))){
+		purple_notify_error(me, "LaTeX", 
+                "Error while trying to transcript LaTeX!", 
+                "Error opening file!");
+        returnval = FALSE;
+        goto out;
+    }
+
+    /* Generate latex template file */
+	fprintf(transcript_file, LATEX_MATH_TEMPLATE(%s,%s,%s), 
+            formula->str, fgcolor, bgcolor);
+	fclose(transcript_file);
+
+
+    if (exec_latex(pngfilepath, texfilepath, dvifilepath) == FALSE){
         *filename_png = pngfilepath;
     } else {
 	    purple_debug_info("LaTeX", 
