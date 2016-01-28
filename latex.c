@@ -181,7 +181,10 @@ static gboolean is_blacklisted(const char *message){
 		regfree(&regex);
 		if (strstr(message, not_secure[i]) != NULL || 
                 reti != REG_NOMATCH) return TRUE;
+
+        free(begin_not_secure);
 	}
+
 	return FALSE;
 }
 
