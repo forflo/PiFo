@@ -45,7 +45,6 @@
 //include
 #include <pidgin/gtkplugin.h>
 #include <libpurple/conversation.h>
-//#include <libpurple/core.h>
 #include <libpurple/debug.h>
 #include <libpurple/signals.h>
 #include <libpurple/imgstore.h>

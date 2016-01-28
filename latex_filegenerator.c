@@ -90,37 +90,60 @@ static GString *fgcolor_as_string(){
 static const char *graphviz_command = "dot";
 static const char *formula_command = "formula";
 static const char *allowed_languages[] = {
-    "ada",
-    "haskell",
-    "bash",
-    "awk",
-    "c",
-    "cplusplus",
-    "html",
-    "java",
-    "lisp",
-    "lua",
-    "make",
-    "octave",
-    "perl",
-    "python",
-    "ruby",
-    "vhdl",
-    "verilo",
-    "xml",
+    "ada", "haskell",
+    "bash", "awk",
+    "c", "cplusplus",
+    "html", "java",
+    "lisp", "lua",
+    "make", "octave",
+    "perl", "python",
+    "ruby", "vhdl",
+    "verilo", "xml",
     "latex"
 }
 
-
 /* Used to parse the command and trigger appropriate compilier runs */
 static GString *dispatch_command(GString *command, GString *snippet);
+static GString *dispatch_command(GString *command, GString *snippet){
+    GString *result;
+    int i;
 
-static GString *generate_latex_lstlisting(GString *listing, 
-        GString *language, const char *filename);
+    for (i=0; i<sizeof(allowed_languages); i++){
+        if (!strcmp(command->str, allowed_languages[i])){
+            if (generate_latex_listing(snippet, 
+                        g_new_string(allowed_languages[i]), &result));
+                return result;
+            else 
+                return NULL;
+        } 
+    }
+
+    if (!strcmp(command->str, graphviz_command)){
+        if (generate_graphviz_png(snippet, &result))
+            return result;
+        else 
+            return NULL;
+    }
+
+    if (!strcmp(command->str, formula_command)){
+        if (generate_latex_formula(snippet, &result))
+            return result;
+        else
+            return NULL;
+    }
+
+    return NULL;
+}
+
+static gboolean generate_latex_listing(GString *listing, 
+        GString *language, GString **filename);
+
+static gboolean generate_graphviz_png(GString *dotcode,
+        GString **filename);
 
 /* returns filename containing pic of formula*/
-static GString generate_latex_formula(GString *formula, 
-        const char *filename);
+static gboolean generate_latex_formula(GString *formula, 
+        GString **filename);
 
 static GString *get_unique_tmppath(void){
     FILE *temp;
@@ -135,11 +158,12 @@ static GString *get_unique_tmppath(void){
 }
 
 static gboolean generate_latex_formula(GString *formula, 
-        char **filename_png){
+        GString **filename_png){
     FILE *transcript_file;
     FILE *temp;
     char *dirname_temp = NULL;
     gboolean exec_ok;
+    gboolean returnval = TRUE;
 
     GString *fgcolor = fgcolor_as_string, 
             *bgcolor = bgcolor_as_string;
@@ -149,31 +173,47 @@ static gboolean generate_latex_formula(GString *formula,
     GString *dvifilepath = g_string_new(tmpfilepath->str);
     GString *pngfilepath = g_string_new(tmpfilepath->str);
 
+    GString *auxfilepath = g_string_new(tmpfilepath->str);
+    GString *logfilepath = g_string_new(tmpfilepath->str);
+
     g_string_append(texfilepath, ".tex");
     g_string_append(dvifilepath, ".dvi");
     g_string_append(pngfilepath, ".png");
+    g_string_append(logfilepath, ".log");
+    g_string_append(auxfilepath, ".aux");
 
 	dirname_temp = getdirname(textfilepath->str);
+	if (dirname_temp == NULL){
+		purple_notify_error(me, "LaTeX", 
+                "Error while trying to transcript LaTeX!", 
+                "Couldnt allocate memory for path");
+
+        returnval = FALSE;
+        goto out;
+	}
+
+    if (chdir(dirname_temp) == -1){
+		purple_notify_error(me, "LaTeX", 
+                "Error while trying to transcript LaTeX!", 
+                "Couldn't cange to temporary directory");
+         
+        free(dirname_temp);
+        returnval = FALSE;
+        goto out;
+    }
     
-	if (!(transcript_file = fopen(texfilepath->str, "w"))) 
-        goto error;
+	if (!(transcript_file = fopen(texfilepath->str, "w"))){
+		purple_notify_error(me, "LaTeX", 
+                "Error while trying to transcript LaTeX!", 
+                "Error opening file!");
+        returnval = FALSE;
+        goto out;
+    }
 
     /* Generate latex template file */
 	fprintf(transcript_file, LATEX_MATH_TEMPLATE(%s,%s,%s), 
             formula->str, fgcolor, bgcolor);
-
 	fclose(transcript_file);
-
-	if (!dirname_temp || chdir(dirname_temp)) {
-		if (dirname_temp) 
-            free(dirname_temp);
-
-		purple_notify_error(me, "LaTeX", 
-                "Error while trying to transcript LaTeX!", 
-                "Couldn't cange to temporary directory");
-
-        goto error;
-	}
 
     /* Make sure that latex cannot do shell escape, even
      * if the local default config says so! */
@@ -191,45 +231,29 @@ static gboolean generate_latex_formula(GString *formula,
     };
 
     /* Start Latex and dvipng */
-	exec_ok = !(execute("latex", latexopts) || 
-            execute("dvipng", dvipngopts));
+	exec_ok = (execute("latex", latexopts) == 0) &&
+              (execute("dvipng", dvipngopts) == 0);
 
-	purple_debug_info("LaTeX", 
-            "Image creation exited with status '%d'\n", 
-            !exec_ok);
-    goto out;
-
-error:
-    unlink(file_tex);
-    unlink(file_dvi);
-    unlink(*filename_png);
-
-    if (file_tex) free(file_tex);
-    if (file_dvi) free(file_dvi);
-    if (*filename_png) free(*filename_png);
-    if (filename_temp) free(filename_temp);
-    if (dirname_temp) free(dirname_temp);
-
-    *filename_png = NULL;
-
-    return FALSE;
-
+    if (exec_ok){
+        *filename_png = pngfilepath;
+    } else {
+	    purple_debug_info("LaTeX", 
+                "Image creation exited with status '%d'\n", 
+                !exec_ok);
+        returnval = FALSE;
+        g_string_free(pngfilepath);
+    }
 out:
-    unlink(file_tex);
-    unlink(file_dvi);
+    unlink(texfilepath->str);
+    unlink(dvifilepath->str);
+    unlink(auxfilepath->str);
+    unlink(logfilepath->str);
 
-    /* Remove latex intermediate files */
-	file_tex[strlen(file_tex) - 4] = '\0';
-	strcat(file_tex, ".aux");
-	unlink(file_tex);
-	file_tex[strlen(file_tex) - 4] = '\0';
-	strcat(file_tex, ".log");
-	unlink(file_tex);
+    g_string_free(texfilepath);
+    g_string_free(auxfilepath);
+    g_string_free(logfilepath);
+    g_string_free(dvifilepath);
+    g_string_free(tmpfilepath);
 
-    if (file_tex) free(file_tex);
-    if (file_dvi) free(file_dvi);
-    if (filename_temp) free(filename_temp);
-    if (dirname_temp) free(dirname_temp);
-
-    return TRUE;
+    return returnval;
 }
