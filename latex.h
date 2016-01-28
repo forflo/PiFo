@@ -158,22 +158,6 @@ static gboolean message_receive(PurpleAccount *account, const char *who,
 static char* getdirname(const char const *file);
 
 /*
- * get_latex_cmd returns a system()-executable-command for latex
- *
- * return the executable command if successfull, NULL otherwise; must be
- * freed with free()
- */
-static char* get_latex_cmd();
-
-/*
- * get_dvipng_cmd returns a system()-executable-command for dvipng
- *
- * return the executable command if successfull, NULL otherwise; must be
- * freed with free()
- */
-static char* get_dvipng_cmd();
-
-/*
  * win32_purple_notify extracts error information of last occured WIN32-Error due to an API-call and asserts it to pidgin via purple_notify_error
  * Error message will be prepended by *prep:
  */
@@ -196,5 +180,5 @@ char* searchPATH(const char const *file);
  *
  * returns -1 if execution failed, otherwise the return code of the executed program.
  */
-static int execute(char *cmd, char *opts[], int copts);
+static int execute(const char *prog, char * const opts[]);
 #endif

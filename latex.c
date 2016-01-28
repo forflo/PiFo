@@ -101,44 +101,24 @@ static char* getfilename(const char const *file){
 	return r;
 }
 
-char* makeString(const char const *string){
-	char *result = NULL;
-	result = malloc((strlen(string) + 1) * sizeof(char));
-	if (result)
-		strcpy(result, string);
-
-	return result;
-}
-
 /* Helper function for command execution */
-static int execute(char *cmd, char *opts[], int copts){
+static int execute(const char *prog, char * const cmd[]){
 	int i = 0;
 	int exitcode = -1, exitstatus;
-	char **opt = NULL;
-	char *message = NULL;
 	pid_t child_id = 0;
 
-	opt = malloc((copts + 2) * sizeof(char*));
+	purple_debug_misc("[execute()] LaTeX", "'%s' started\n", cmd[0]);
 
-	opt[0] = cmd;
-	for (i = 0; i < copts; i++) {
-		opt[i + 1] = *(opts + i);
-	}
-	opt[copts + 1] = NULL;
-
-	purple_debug_misc("LaTeX", "'%s' started\n", cmd);
-
-	child_id = fork();
+    child_id = fork();
 	switch (child_id) {
         case 0: 
             /* In child */
-		    exitcode = execvp(cmd, opt);
-		    free(opt);
+		    exitcode = execvp(prog, cmd);
 		    exit(exitcode);
             break;
         case -1:
             purple_debug_error("LaTeX", 
-                    "Error while executing '%s'", 
+                    "[execute()] Error while executing '%s'", 
                     "Could not fork");
 
             return exitcode;
@@ -149,40 +129,39 @@ static int execute(char *cmd, char *opts[], int copts){
 	}
 
 	if (wait(&exitstatus) > 0) {
-		free(opt);
 		if (WIFEXITED(exitstatus)) {
 			exitcode = WEXITSTATUS(exitstatus);
 			purple_debug_info("LaTeX", 
-                    "'%s' ended normally with exitcode '%d'\n", 
-                    cmd, exitcode);
+                    "[execute()] '%s' ended normally with exitcode '%d'\n", 
+                    prog, exitcode);
 		} else {
 			purple_debug_error("LaTeX", 
-                    "'%s' ended abnormally via the signal '%d'\n", 
-                    cmd, WTERMSIG(exitstatus));
+                    "[execute()] '%s' ended abnormally via the signal '%d'\n", 
+                    prog, WTERMSIG(exitstatus));
         }
 	} else {
 		purple_debug_error("LaTeX", 
-                "While executing '%s' the following error occured: '%s'(%d)\n", 
-                cmd, strerror(errno), errno);
+                "[execute()] While executing '%s' the following error occured: '%s'(%d)\n", 
+                prog, strerror(errno), errno);
 	}
 
 	return exitcode;
 }
 
 static char* get_latex_cmd(void){
-	return makeString("latex");
+	return g_strdup("latex");
 }
 
 static char* get_dvips_cmd(void){
-	return makeString("dvips");
+	return g_strdup("dvips");
 }
 
 static char* get_dvipng_cmd(void){
-	return makeString("dvipng");
+	return g_strdup("dvipng");
 }
 
 static char* get_convert_cmd(void){
-	return makeString("convert");
+	return g_strdup("convert");
 }
 
 static gboolean is_blacklisted(const char *message){
@@ -309,20 +288,20 @@ static gboolean latex_to_image(const char *latex_expression,
 
     /* Make sure that latex cannot do shell escape, even
      * if the local default config says so! */
-	char *latexopts[2] = { 
-        "--no-shell-escape --interaction=nonstopmode", 
-        file_tex 
+	char * const latexopts[] = { 
+        "latex", "--no-shell-escape", "--interaction=nonstopmode", 
+        file_tex, NULL
     };
 
-	char *dvipngopts[8] = { 
-        "-Q", "10", "-T", 
+	char * const dvipngopts[] = { 
+        "dvipng", "-Q", "10", "-T", 
         "tight", "--follow", "-o", 
-        *filename_png, file_dvi 
+        *filename_png, file_dvi, NULL
     };
 
     /* Start Latex and dvipng */
-	exec_ok = !(execute(get_latex_cmd(), latexopts, 2) || 
-            execute(get_dvipng_cmd(), dvipngopts, 8));
+	exec_ok = !(execute("latex", latexopts) || 
+            execute("dvipng", dvipngopts));
 
 	purple_debug_info("LaTeX", 
             "Image creation exited with status '%d'\n", 
