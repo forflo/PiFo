@@ -141,21 +141,8 @@ static gboolean generate_latex_listing(GString *listing,
 static gboolean generate_graphviz_png(GString *dotcode,
         GString **filename);
 
-/* returns filename containing pic of formula*/
 static gboolean generate_latex_formula(GString *formula, 
         GString **filename);
-
-static GString *get_unique_tmppath(void){
-    FILE *temp;
-    char *filename_temp;
-    GString *result = g_string_new(NULL);
-
-    temp = purple_mkstemp(&filename_temp,TRUE);
-    fclose(temp);
-    unlink(filename_temp);
-
-    return result;
-}
 
 static gboolean generate_latex_formula(GString *formula, 
         GString **filename_png){
