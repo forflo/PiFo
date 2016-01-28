@@ -125,152 +125,7 @@ static GString *fgcolor_as_string(){
     return result;
 }
 
-static gboolean latex_to_image(const char *latex_expression, 
-        char **filename_png, enum format format){
-    FILE *transcript_file;
-    FILE *temp;
-
-    char *filename_temp = NULL;
-    char *dirname_temp = NULL;
-
-    char *file_tex = NULL;
-    char *file_dvi = NULL;
-
-    char fgcolor[16], bgcolor[16];
-    gboolean exec_ok;
-    
-    /* The following creats temporary files */
-    temp = purple_mkstemp(&filename_temp,TRUE);
-    unlink(filename_temp);
-    fclose(temp);
-
-    file_tex = malloc((strlen(filename_temp) + 5) * sizeof(char));
-    file_dvi = malloc((strlen(filename_temp) + 5) * sizeof(char));
-    *filename_png = malloc((strlen(filename_temp) + 5) * sizeof(char));
-
-    if(!(filename_temp && file_tex && file_dvi && *filename_png))
-    {
-        purple_notify_error(me, "LaTeX", 
-                "Error while running LaTeX!", 
-                "Couldn't create temporary files.");
-        goto error;
-    }
-    
-    /* Create filenames based on filename_temp */
-    strcpy(file_tex, filename_temp);
-    strcat(file_tex, ".tex");
-    strcpy(file_dvi, filename_temp);
-    strcat(file_dvi, ".dvi");
-    strcpy(*filename_png, filename_temp);
-    strcat(*filename_png, ".png");
-
-    /* EDIT: FG color is missing! */
-
-	if (!(transcript_file = fopen(file_tex, "w"))) 
-        goto error;
-
-    /* Generate latex template file */
-    switch (format) {
-        case FORMULA:
-	        fprintf(transcript_file, HEADER HEADER_FCOLOR "{%s}" 
-                    HEADER_BCOLOR "{%s}" HEADER_DOC BEG_MATH "%s" END_MATH
-                    FOOTER, fgcolor, bgcolor, latex_expression);
-            break;
-        case LISTING:
-	        fprintf(transcript_file, HEADER HEADER_FCOLOR "{%s}" 
-                    HEADER_BCOLOR "{%s}" HEADER_DOC BEG_LISTING "\n%s\n" END_LISTING
-                    FOOTER, fgcolor, bgcolor, latex_expression);
-            break;
-        default:
-            goto error;
-            break;
-    }
-	fclose(transcript_file);
-
-	dirname_temp = getdirname(file_tex);
-
-	if (!dirname_temp || chdir(dirname_temp)) {
-		if (dirname_temp) 
-            free(dirname_temp);
-
-		purple_notify_error(me, "LaTeX", 
-                "Error while trying to transcript LaTeX!", 
-                "Couldn't cange to temporary directory");
-
-        goto error;
-	}
-
-    /* Make sure that latex cannot do shell escape, even
-     * if the local default config says so! */
-	char * const latexopts[] = { 
-        "latex", "--no-shell-escape", "--interaction=nonstopmode", 
-        file_tex, NULL
-    };
-
-	char * const dvipngopts[] = { 
-        "dvipng", "-Q", "10", "-T", 
-        "tight", "--follow", "-o", 
-        *filename_png, file_dvi, NULL
-    };
-
-    /* Start Latex and dvipng */
-	exec_ok = !(execute("latex", latexopts) || 
-            execute("dvipng", dvipngopts));
-
-	purple_debug_info("LaTeX", 
-            "Image creation exited with status '%d'\n", 
-            !exec_ok);
-
-    goto out;
-
-error:
-    unlink(file_tex);
-    unlink(file_dvi);
-    unlink(*filename_png);
-
-    if (file_tex) free(file_tex);
-    if (file_dvi) free(file_dvi);
-    if (*filename_png) free(*filename_png);
-    if (filename_temp) free(filename_temp);
-    if (dirname_temp) free(dirname_temp);
-
-    *filename_png = NULL;
-
-    return FALSE;
-
-out:
-    unlink(file_tex);
-    unlink(file_dvi);
-
-    /* Remove latex intermediate files */
-	file_tex[strlen(file_tex) - 4] = '\0';
-	strcat(file_tex, ".aux");
-	unlink(file_tex);
-	file_tex[strlen(file_tex) - 4] = '\0';
-	strcat(file_tex, ".log");
-	unlink(file_tex);
-
-    if (file_tex) free(file_tex);
-    if (file_dvi) free(file_dvi);
-    if (filename_temp) free(filename_temp);
-    if (dirname_temp) free(dirname_temp);
-
-    return TRUE;
-}
-
-static enum format get_format(const char *message){
-    if (strstr(message, LISTING_TEX_BEGIN) != NULL)
-        return LISTING;
-    if (strstr(message, KOPETE_TEX_BEGIN) != NULL)
-        return FORMULA;
-    return NONE;
-}
-
-static const char *get_format_string(enum format fmt){
-    return format_table[fmt];
-}
-
-static GPtrArray *get_command(GString *buffer){
+static GPtrArray *get_commands(GString *buffer){
     GPtrArray *commands = g_ptr_array_new();
     GString *command = NULL
     char current;
@@ -340,10 +195,12 @@ static gboolean replace(char **message, GString *command, GString *snippet, int 
     g_string_append(replacer, idbuffer);
     g_string_append(replacer, IMG_END);
 
-
     new_msg = str_replace(*message, to_replace->str, replacer->str);
     free(*message);
     *message = new_msg;
+
+    g_free(replacer);
+    g_free(to_replace);
 
     return TRUE;
 }
@@ -396,13 +253,13 @@ static char *str_replace(char *orig, char *rep, char *with) {
     return result;
 }
 
-static int load_img(const char *resulting_png){
+static int load_imgage(const GString *resulting_png){
+    int img_id = 0;
     gchar *filedata;
     gsize size;
     GError *error;
-    int img_id = 0;
 
-	if (!g_file_get_contents(resulting_png, &filedata, &size, &error)) {
+	if (!g_file_get_contents(resulting_png->str, &filedata, &size, &error)) {
 		purple_notify_error(me, "LaTeX", 
                 "Error while reading the generated image!", error->message);
 		g_error_free(error);
@@ -411,7 +268,7 @@ static int load_img(const char *resulting_png){
 	}
 
 	img_id = purple_imgstore_add_with_id(filedata, 
-            MAX(1024, size), getfilename(resulting_png));
+            MAX(1024, size), getfilename(resulting_png->str));
 
 	if (img_id == 0) {
 		purple_notify_error(me, "LaTeX", 
@@ -428,8 +285,12 @@ static gboolean modify_message(char **message){
     enum format format = get_format(*tmp2);
     const char *startdelim = get_format_string(format);
     const char *enddelim = KOPETE_END;
+    GString *snippet;
+    GString *command;
+    GString *picpath;
 
     int i;
+    int image_id;
 
     GPtrArray *snippets = get_snippets(*message);
     GPtrArray *commands = get_commands(*message);
@@ -441,11 +302,19 @@ static gboolean modify_message(char **message){
     }
 
     for (i=0; i<commands->len; i++){
-        //replace parts in message by replacement_text
+        command = g_ptr_array_index(commands, i);
+        snippet = g_ptr_array_index(snippets, i);
+
+        picpath = dispatch_command(command, snippet);
+        image_id = load_image(picpath);
+
+        replace(message, command, snippet, image_id);
     }
 
+    return TRUE;
 }
 
+//TODO: Check sanity of this function!
 static gboolean pidgin_latex_write(PurpleConversation *conv, 
         const char *nom, const char *message, 
         PurpleMessageFlags messFlag, const char *original){
