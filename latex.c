@@ -148,22 +148,6 @@ static int execute(const char *prog, char * const cmd[]){
 	return exitcode;
 }
 
-static char* get_latex_cmd(void){
-	return g_strdup("latex");
-}
-
-static char* get_dvips_cmd(void){
-	return g_strdup("dvips");
-}
-
-static char* get_dvipng_cmd(void){
-	return g_strdup("dvipng");
-}
-
-static char* get_convert_cmd(void){
-	return g_strdup("convert");
-}
-
 static gboolean is_blacklisted(const char *message){
 	char *not_secure[NB_BLACKLIST] = BLACKLIST;
 	int reti;
