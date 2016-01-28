@@ -44,6 +44,12 @@
 
 static PurplePlugin *me;
 
+static gboolean contains_work(const char *message){
+    if (strstr(message, "\\"))
+        return TRUE;
+    return FALSE;
+}
+
 static void open_log(PurpleConversation *conv)
 {
 	conv->logs = g_list_append(NULL, 
@@ -517,8 +523,7 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 
 	purple_debug_info("LaTeX", "(message_send()) Sending Message: %s\n", *buffer);
 
-	if (strstr(*buffer, KOPETE_TEX_BEGIN) == NULL &&
-        strstr(*buffer, LISTING_TEX_BEGIN) == NULL) {
+	if (!contains_work(*buffer)){
 		return;
 	}
 
@@ -528,7 +533,7 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 		return;
 	}
 
-	temp_buffer = malloc(strlen(*buffer) + 1);
+	temp_buffer = g_strdup(*buffer);
 	if (temp_buffer == NULL) {
 		purple_notify_error(me, "LaTeX", 
                 "Error while analysing the message!", 
@@ -536,7 +541,6 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 		return;
 	}
 
-	strcpy(temp_buffer, *buffer);
 	if (analyse(&temp_buffer)) {
 		*buffer = temp_buffer;
 	} else {
@@ -561,8 +565,7 @@ static gboolean message_receive(PurpleAccount *account,
 	char *temp_buffer;
 	purple_debug_info("LaTeX", "[message_receive()] Writing Message: %s\n", *buffer);
 
-	if (strstr(*buffer, KOPETE_TEX_BEGIN) == NULL &&
-        strstr(*buffer, LISTING_TEX_BEGIN) == NULL) {
+	if (!contains_work(*buffer)){
 		return FALSE;
 	}
 
@@ -572,15 +575,13 @@ static gboolean message_receive(PurpleAccount *account,
 		return FALSE;
 	}
 
-    temp_buffer = malloc(strlen(*buffer) + 1);
+    temp_buffer = g_strdup(*buffer);
 	if (temp_buffer == NULL) {
 		purple_notify_error(me, "LaTeX", 
                 "Error while analysing the message!", 
                 "Out of memory!");
 		return FALSE;
 	}
-
-	strcpy(temp_buffer, *buffer);
 
 	purple_debug_info("LaTeX", "[message_receive()] Analyse: %s\n", temp_buffer);
 	if (analyse(&temp_buffer)) {
@@ -648,7 +649,7 @@ static PurplePluginInfo info = {
 
 	LATEX_PLUGIN_ID,                        /**< id             */
 	"LaTeX",                                /**< name           */
-	"1.4",                                  /**< version        */
+	"1.5",                                  /**< version        */
 	/**  summary        */
 	"To display LaTeX formula into Pidgin conversation.",
 	/**  description    */
