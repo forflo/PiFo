@@ -1,0 +1,47 @@
+\documentclass[12pt]{article}
+\usepackage{color} 
+\usepackage{listings}
+\definecolor{fgcolor}{RGB}{0,0,0} 
+\definecolor{bgcolor}{RGB}{255,255,255} 
+
+\lstset{numbers=left,numberstyle=\tiny\ttfamily{},stepnumber=1,numbersep=5pt} \lstset{tabsize=4} \lstset{breaklines=true,breakatwhitespace=true} \lstset{frame=none}
+\lstset{language=haskell} 
+
+\definecolor{hellgruen}{RGB}{0,155,0}
+\definecolor{lila}{RGB}{253,0,255}
+\definecolor{magenta}{RGB}{193,90,255}
+\definecolor{blau}{RGB}{0,0,182}
+
+\lstset{showspaces=false,showstringspaces=false}
+
+\lstset{basicstyle=\ttfamily{},
+    identifierstyle=\color{blau},
+    keywordstyle=\color{magenta},
+    commentstyle=\color{lila},
+    stringstyle=\itshape\color{hellgruen}}
+
+\begin{document}
+\pagecolor{bgcolor}\color{fgcolor} 
+
+\begin{lstlisting} 
+
+plus :: Int -> Int -> Int
+plus = (+)
+
+plusPlus :: Int -> Int -> Int -> Int
+plusPlus a b c = a + b + c
+
+-- this is a sample comment!!
+main = do
+    let res = plus 1 2
+    putStrLn $ "1+2 = " ++ show res
+
+    let res = plusPlus 1 2 3
+    putStrLn $ "1+2+3 = " ++ show res
+
+blues :: Int -> Int -> Int -> Int
+blues = \x y z -> x * y * z
+
+\end{lstlisting} 
+
+\end{document}
