@@ -31,6 +31,8 @@ else
   LIB_INSTALL_DIR = $(PREFIX)/lib/pidgin
 endif
 
+SRC = pifo.c pifo_filegenerator.c pifo_util.c
+HEA = pifo.h pifo_generator.h
 PIDGIN_LATEX = latex
 
 PIDGIN_CFLAGS  = $(shell pkg-config pidgin --cflags)
@@ -46,10 +48,10 @@ install: all
 	cp $(PIDGIN_LATEX).so $(LIB_INSTALL_DIR)
 
 $(PIDGIN_LATEX).so: $(PIDGIN_LATEX).o
-	$(CC) $(LDFLAGS) -shared $(CFLAGS) $< -o $@ $(PIDGIN_LIBS) $(GTK_LIBS) -Wl,--export-dynamic -Wl,-soname
+	$(CC) $(LDFLAGS) -shared $(CFLAGS) $(SRC) -o $@ $(PIDGIN_LIBS) $(GTK_LIBS) -Wl,--export-dynamic -Wl,-soname
 
-$(PIDGIN_LATEX).o:$(PIDGIN_LATEX).c $(PIDGIN_LATEX).h
-	$(CC) $(CFLAGS) -fPIC -c $< -o $@ $(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
+$(PIDGIN_LATEX).o:$(SRC) $(HEA)
+	$(CC) $(CFLAGS) -fPIC $(SRC) -o $@ $(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
 
 clean:
 	rm -rf *.o *.c~ *.h~ *.so *.la .libs

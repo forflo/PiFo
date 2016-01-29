@@ -1,14 +1,49 @@
 # DESCRIPTION
 
 This is a fork of the pidgin latex plugin. It aims to
-refactor and extend it.
+refactor and extend it. By now, it is basically a complete
+rewrite of the original sources.
 The pidgin latex plugin for Pidgin allows you to 
-display LaTeX output in your IMs or Chats.
+display various latex markup.
+
+You can
+* highlight sourcecode
+* display formulas
+* generate graphs from dot files
 
 # REQUIREMENTS
-	- the pidgin header files (needed to compile the plugin)
-	- a LaTex-Distribution
+	- The pidgin header files (needed to compile the plugin)
+	- A LaTex-Distribution
 	- dvipng [3]
+    - latex
+    - graphviz
+
+# USAGE
+The plugin reads every message you send to your conversation
+partner. You can markup some of your text via the following
+construct:
+
+    $command{your formula, dot code or sourcecode}
+
+## Graphivz dot code
+Display of graphviz dot code
+
+    He look at following graph: $graph{your dot code here}
+
+## Latex formulas
+Use the following snippet:
+
+    Hey, i found out that I can create the set of natural
+    numbers by inductively describing. I Use the Axiom
+    $formula{\frac{}{n}} and the rule $formula{\frac{n}{n+1}}
+
+## Sourcecode hightlighting
+Use the following snippet:
+
+    Hey, this is not an iteration in C
+    $c{
+        int main(void){ return 0; }
+    }
 
 # IMPORTANT
 This plugin is not compatible with gaim-encryption plugin. 
@@ -32,8 +67,6 @@ To install it for everybody on your computer,
 	$ whereis pidgin
 	and look for the part before "/lib/pidgin".
 
-# USAGE
-put LaTeX code into $$ ... $$ markup, for example $$x \in \mathbb{R}$$
 
 # NOTE
 To everyone updating from earlier versions than 1.3: you don't need ImageMagick anymore for this plugin to work.
