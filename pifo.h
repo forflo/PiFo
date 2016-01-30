@@ -30,8 +30,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA, 02110-1301, USA
  *
  */
-#ifndef _PIDGIN_LATEX_H_
-#define _PIDGIN_LATEX_H_
+#ifndef PIDGIN_LATEX
+#define PIDGIN_LATEX
 
 #ifndef G_GNUC_NULL_TERMINATED
 #  if __GNUC__ >= 4
@@ -43,7 +43,6 @@
 
 #define PURPLE_PLUGINS
 
-//include
 #include <pidgin/gtkplugin.h>
 #include <libpurple/conversation.h>
 #include <libpurple/debug.h>
@@ -56,109 +55,48 @@
 #include <libpurple/version.h>
 #include <pidgin/gtksmiley.h>
 
-// Constant
 #define IMG_BEGIN "<img id=\""
 #define IMG_END "\">"
-
 #define BEG "[tex]"
 #define END "[/tex]"
 #define KOPETE_END "}"
 #define KOPETE_TEX_BEGIN "\\f{"
 #define LISTING_TEX_BEGIN "\\l{"
-
 #define LATEX_PLUGIN_ID "qjuh-LaTeX"
 #define WEBSITE "http://sourceforge.net/projects/pidgin-latex/"
-
 #define FILTER_AND "&amp;"
 #define FILTER_LT "&lt;"
 #define FILTER_GT "&gt;"
 #define FILTER_BR "<br>"
 
-/* Yes, this is simply a copy/paste of KopeteTex blacklist. */
-/* But too bad in LaTeX and system security to verify all   */
-/* of this */
 #define NB_BLACKLIST (42)
 #define BLACKLIST { "\\def", "\\let", "\\futurelet", "\\newcommand", "\\renewcommand", "\\else", "\\fi", "\\write", "\\input", "\\include", "\\chardef", "\\catcode", "\\makeatletter", "\\noexpand", "\\toksdef", "\\every", "\\errhelp", "\\errorstopmode", "\\scrollmode", "\\nonstopmode", "\\batchmode", "\\read", "\\csname", "\\newhelp", "\\relax", "\\afterground", "\\afterassignment", "\\expandafter", "\\noexpand", "\\special", "\\command", "\\loop", "\\repeat", "\\toks", "\\output", "\\line", "\\mathcode", "\\name", "\\item", "\\section", "\\mbox", "\\DeclareRobustCommand" }
 
-
-enum format {
-    LISTING = 0,
-    FORMULA,
-    NONE
-};
-
-static const char *format_table[] = {
-    "\\l{", "\\f{"
-};
-
-// prototypes
-
-/* Verify Blacklist */
-/* return true if one word of the message is blacklisted */
+static const char *str_replace(const char *orig, const char *rep, const char *with);
+static GString *modify_message(const GString *message);
 static gboolean is_blacklisted(const char *message);
-
-/*
- * latex_to_image creates PNG-image  with the LaTeX code pointed by *latex
- * *latex points to latex-input
- * **file_png receives filename of temporary generated png-file; file must be deleted and string must be freed by caller
- *
- * returns TRUE on success, false otherwise
- */
-static gboolean latex_to_image(const char *latex, char **file_png, enum format format);
-
-/*
- * Transform *tmp2 extracting some *startdelim here 
- * *enddelim thing, make png-image from latex-input
- *  and tmp2 becomes 'some<img="number">thing'
- *  smileys whether or not to add the formula as a custom smiley
- * returns TRUE on success, FALSE otherwise
- */
-static gboolean analyse(char **tmp2);
-
-/*
- * pidgin_latex_write perform the effective write of the latex code in the IM or Chat windows
- *      *conv is a pointer onto the conversation context
- *	*nom is the name of the correspondent
- *	*message is the modified message with the image
- *	*messFlags is Flags related to the messages
- *	*original is the original message unmodified
- * return TRUE.
- */
+static void open_log(PurpleConversation *conv);
+static gboolean contains_work(const char *message);
+static GPtrArray *get_commands(GString *buffer);
+static GPtrArray *get_snippets(GString *buffer);
+static GString *replace(const GString *original, 
+        const GString *command, const GString *snippet, int id);
+static int load_imgage(const GString *resulting_png);
+static gboolean free_commands(const GPtrArray *commands);
+static gboolean free_snippets(const GPtrArray *commands);
+static GString *modify_message(const GString *message);
 static gboolean pidgin_latex_write(PurpleConversation *conv, 
         const char *nom, const char *message, 
         PurpleMessageFlags messFlag, const char *original);
+static void message_send(PurpleConversation *conv, char **buffer);
+static gboolean message_receive(PurpleAccount *account, 
+        const char *who, const char **buffer, 
+        PurpleConversation *conv, PurpleMessageFlags flags);
+static gboolean plugin_load(PurplePlugin *plugin);
+static void message_send_chat(PurpleAccount *account, 
+        const char **buffer, int id);
+static void message_send_im(PurpleAccount *account, 
+        const char *who, const char **buffer);
+static gboolean plugin_unload(PurplePlugin * plugin);
 
-/* to intercept outgoing messages */
-static void message_send(PurpleConversation *conv, const char **buffer);
-
-/* to intercept ingoing messages */
-static gboolean message_receive(PurpleAccount *account, const char *who, 
-        const char **buffer, PurpleConversation *conv, PurpleMessageFlags flags);
-/*
- * getdirname returns the directory's part of a filename.
- * Parsing is done OS-dependently (with path-separator as defined in glib/gutils.h)
- *      *path is the filename you want to extract a directory-part from
- * return directory's part on success, NULL otherwise; must be freed with
- * free()!
- */
-static char* getdirname(const char const *file);
-
-/*
- * searchPATH searches the PATH-environment for the specified file.
- * *file is the name of the executable to search for
- * returns the right full path, e.g. with the executable's name appended, NULL on failure, must be freed with free()
- */
-char* searchPATH(const char const *file);
-
-/*
- * execute executes the *cmd with opts appended to the commandline.
- * Advantage to system()-call under win32 ist that no console window pops up.
- * On systems other than windows this function is forks and makes an execvp()-call.
- * *cmd is the command to execute
- * *opts[] is an array of elements to be appended to the commandline
- * copts is the count of elements within *opts[]
- *
- * returns -1 if execution failed, otherwise the return code of the executed program.
- */
-static int execute(const char *prog, char * const opts[]);
 #endif

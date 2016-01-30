@@ -1,6 +1,16 @@
 #include "pifo_generator.h"
 #include "pifo.h"
 
+static gboolean generate_latex_listing(const GString *listing, 
+        const GString *language, GString **filename);
+static gboolean generate_graphviz_png(GString *dotcode,
+        GString **filename);
+static gboolean generate_latex_formula(GString *formula, 
+        GString **filename);
+
+static GString *dispatch_command(const GString *command, const GString *snippet);
+static GString *fgcolor_as_string();
+static GString *fgcolor_as_string();
 static const char *graphviz_command = "dot";
 static const char *formula_command = "formula";
 static const char *allowed_languages[] = {
@@ -58,7 +68,7 @@ static GString *fgcolor_as_string(){
 }
 
 /* Used to parse the command and trigger appropriate compilier runs */
-static GString *dispatch_command(GString *command, GString *snippet){
+static GString *dispatch_command(const GString *command, const GString *snippet){
     GString *result;
     int i;
 
@@ -90,8 +100,8 @@ static GString *dispatch_command(GString *command, GString *snippet){
 }
 
 
-static gboolean generate_latex_listing(GString *listing, 
-        GString *language, GString **filename){
+static gboolean generate_latex_listing(const GString *listing, 
+        const GString *language, GString **filename){
 
     FILE *transcript_file;
     gboolean returnval = TRUE;
@@ -118,8 +128,9 @@ static gboolean generate_latex_listing(GString *listing,
     }
 
     /* Generate latex template file */
-	fprintf(transcript_file, LATEX_LST_TEMPLATE(%s,%s,%s,%s), 
-            language->str, fgcolor->str, bgcolor->str, listing->str);
+	fprintf(transcript_file, LATEX_LST_TEMPLATE(%s,%s,%s,%s,%s,%s,%s), 
+            "left", "4", "none", language->str, 
+            fgcolor->str, bgcolor->str, listing->str);
 	fclose(transcript_file);
 
     if (exec_latex(pngfilepath, texfilepath, dvifilepath) == FALSE){
@@ -130,6 +141,7 @@ static gboolean generate_latex_listing(GString *listing,
                 !exec_ok);
         returnval = FALSE;
         g_string_free(pngfilepath);
+        *filename = NULL;
     }
 
 out:
@@ -147,11 +159,13 @@ out:
     return returnval;
 }
 
-static gboolean generate_graphviz_png(GString *dotcode,
-        GString **filename);
 
-static gboolean generate_latex_formula(GString *formula, 
-        GString **filename);
+/* Currently not implemented */
+static gboolean generate_graphviz_png(GString *dotcode,
+        GString **filename){
+    *filename = NULL;
+    return FALSE;
+}
 
 static gboolean setup_files(GString **tex, 
         GString **dvi, GString **png,
@@ -175,7 +189,7 @@ static gboolean setup_files(GString **tex,
     return TRUE;
 }
 
-static gboolean chtempdir(GString *path){
+static gboolean chtempdir(const GString *path){
     char *dirname_temp = getdirname(path->str);
 	if (dirname_temp == NULL){
 		purple_notify_error(me, "LaTeX", 
@@ -197,8 +211,8 @@ static gboolean chtempdir(GString *path){
     return TRUE;
 }
 
-static gboolean exec_latex(GString *pngfilepath, 
-        GString *texfilepath, GString *dvifilepath){
+static gboolean exec_latex(const GString *pngfilepath, 
+        const GString *texfilepath, const GString *dvifilepath){
     gboolean exec_ok;
     /* Make sure that latex cannot do shell escape, even
      * if the local default config says so! */
@@ -225,7 +239,7 @@ static gboolean exec_latex(GString *pngfilepath,
     return TRUE;
 }
 
-static gboolean generate_latex_formula(GString *formula, 
+static gboolean generate_latex_formula(const GString *formula, 
         GString **filename_png){
     FILE *transcript_file;
     gboolean returnval = TRUE;

@@ -42,6 +42,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 
+
 static PurplePlugin *me;
 
 static gboolean contains_work(const char *message){
@@ -139,11 +140,13 @@ static GPtrArray *get_snippets(GString *buffer){
     return snippets;
 }
 
-static gboolean replace(char **message, GString *command, GString *snippet, int id){
+static GString *replace(const GString *original, 
+        const GString *command, const GString *snippet, int id){
     GString *replacer = g_string_new(IMG_BEG);
     GString *to_replace = g_string_new("\\");
     char idbuffer[10];
     char *new_msg;
+    GString *result;
 
     g_string_append(to_replace, command->str);
     g_string_append(to_replace, snippet->str);
@@ -152,21 +155,21 @@ static gboolean replace(char **message, GString *command, GString *snippet, int 
     g_string_append(replacer, idbuffer);
     g_string_append(replacer, IMG_END);
 
-    new_msg = str_replace(*message, to_replace->str, replacer->str);
-    free(*message);
-    *message = new_msg;
+    new_msg = str_replace(original->str, to_replace->str, replacer->str);
 
-    g_free(replacer);
-    g_free(to_replace);
+    g_string_free(replacer, TRUE);
+    g_string_free(to_replace, TRUE);
 
-    return TRUE;
+    result = g_string_new(new_msg);
+    free(new_msg);
+
+    return result;
 }
 
-static char *str_replace(char *orig, char *rep, char *with);
 
 /* Credit to http://stackoverflow.com/questions/779875/
  * what-is-the-function-to-replace-string-in-c*/
-static char *str_replace(char *orig, char *rep, char *with) {
+static char *str_replace(const char *orig, const char *rep, const char *with) {
     char *result; // the return string
     char *ins;    // the next insert point
     char *tmp;    // varies
@@ -237,17 +240,40 @@ static int load_imgage(const GString *resulting_png){
     return img_id;
 }
 
-//TODO check for mem leaks
-static gboolean modify_message(char **message){
+static gboolean free_commands(const GPtrArray *commands){
+    int i;
+    GString *command;
+    for (i=0; i<commands->len; i++){
+        snippet = g_ptr_array_index(commands, i);
+        g_string_free(command, TRUE);
+    }
+
+    return TRUE;
+}
+
+static gboolean free_snippets(const GPtrArray *snippets){
+    int i;
+    GString *snippet;
+    for (i=0; i<snippets->len; i++){
+        snippet = g_ptr_array_index(snippets, i);
+        g_string_free(snippet, TRUE);
+    }
+
+    return TRUE;
+}
+
+static GString *modify_message(const GString *message){
     int image_id;
     int i;
 
     GString *snippet;
     GString *command;
     GString *picpath;
+    GString *old = g_string_new(message->str);
+    GString *new;
 
-    GPtrArray *snippets = get_snippets(*message);
-    GPtrArray *commands = get_commands(*message);
+    GPtrArray *snippets = get_snippets(message);
+    GPtrArray *commands = get_commands(message);
 
     if (snippets->len != commands->len){
 		purple_notify_error(me, "LaTeX", 
@@ -255,6 +281,7 @@ static gboolean modify_message(char **message){
                 "Different amounts of snippets and commands!");
     }
 
+    result = message;
     for (i=0; i<commands->len; i++){
         command = g_ptr_array_index(commands, i);
         snippet = g_ptr_array_index(snippets, i);
@@ -262,10 +289,18 @@ static gboolean modify_message(char **message){
         picpath = dispatch_command(command, snippet);
         image_id = load_image(picpath);
 
-        replace(message, command, snippet, image_id);
+        new = replace(old, command, snippet, image_id);
+        g_string_free(old, TRUE);
+        g_string_free(picpath, TRUE);
+        old = new;
     }
 
-    return TRUE;
+    free_snippets(snippets);
+    free_commands(commands);
+    g_ptr_array_free(snippets, TRUE);
+    g_ptr_array_free(commands, TRUE);
+
+    return new;
 }
 
 //TODO: Check sanity of this function!
@@ -307,8 +342,9 @@ static gboolean pidgin_latex_write(PurpleConversation *conv,
 	return TRUE;
 }
 
-static void message_send(PurpleConversation *conv, const char **buffer){
-	char *temp_buffer;
+static void message_send(PurpleConversation *conv, char **buffer){
+    GString *wrapper = g_string_new(*buffer);
+	GString *modified;
 	gboolean smileys;
 
 	purple_debug_info("LaTeX", 
@@ -324,19 +360,11 @@ static void message_send(PurpleConversation *conv, const char **buffer){
 		return;
 	}
 
-	temp_buffer = g_strdup(*buffer);
-	if (temp_buffer == NULL) {
-		purple_notify_error(me, "LaTeX", 
-                "Error while analysing the message!", 
-                "Out of memory!");
-		return;
-	}
+    modified = modify_message(wrapper);
+    *buffer = g_string_free(modified, FALSE);
+    g_string_free(wrapper, TRUE);
 
-	if (analyse(&temp_buffer)) {
-		*buffer = temp_buffer;
-	} else {
-        g_free(temp_buffer);
-    }
+    return;
 }
 
 static void message_send_chat(PurpleAccount *account, 
@@ -355,38 +383,34 @@ static gboolean message_receive(PurpleAccount *account,
         const char *who, const char **buffer, 
         PurpleConversation *conv, PurpleMessageFlags flags){
 
-	char *temp_buffer;
+    GString *wrapper = g_string_new(*buffer);
+    GString *modified;
+
 	purple_debug_info("LaTeX", 
             "[message_receive()] Writing Message: %s\n", *buffer);
 
 	if (!contains_work(*buffer)){
+        g_string_free(wrapper, TRUE);
 		return FALSE;
 	}
 
 	if (is_blacklisted(*buffer)) {
 		purple_debug_info("LaTeX", 
                 "Message not analysed, because it contained blacklisted code.\n");
-		return FALSE;
-	}
-
-    temp_buffer = g_strdup(*buffer);
-	if (temp_buffer == NULL) {
-		purple_notify_error(me, "LaTeX", 
-                "Error while analysing the message!", 
-                "Out of memory!");
+        g_string_free(wrapper, TRUE);
 		return FALSE;
 	}
 
 	purple_debug_info("LaTeX", 
-            "[message_receive()] Analyse: %s\n", temp_buffer);
-	if (analyse(&temp_buffer)) {
-		pidgin_latex_write(conv, who, temp_buffer, flags, *buffer);
-		g_free(temp_buffer);
-		return TRUE;
-	}
+            "[message_receive()] Analyse: %s\n", *buffer);
 
-	g_free(temp_buffer);
-	return FALSE;
+    modified = modify_message(wrapper);
+	pidgin_latex_write(conv, who, modified->str, flags, *buffer);
+
+    g_string_free(modified, TRUE);
+    g_string_free(wrapper, TRUE);
+
+	return TRUE;
 }
 
 static gboolean plugin_load(PurplePlugin *plugin){
@@ -468,7 +492,8 @@ static PurplePluginInfo info = {
 	NULL
 };
 
-static void
-init_plugin(PurplePlugin *plugin) { }
+static void init_plugin(PurplePlugin *plugin){
+    return;
+} 
 
-PURPLE_INIT_PLUGIN(LaTeX, init_plugin, info)
+PURPLE_INIT_PLUGIN(pifo, init_plugin, info)
