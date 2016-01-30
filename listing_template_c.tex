@@ -1,0 +1,74 @@
+\documentclass[12pt]{article}
+\usepackage{color} 
+\usepackage{listings}
+\definecolor{fgcolor}{RGB}{0,0,0} 
+\definecolor{bgcolor}{RGB}{255,255,255} 
+
+\lstset{numbers=left,numberstyle=\tiny\ttfamily{},stepnumber=1,numbersep=5pt} \lstset{tabsize=4} \lstset{breaklines=true,breakatwhitespace=true} \lstset{frame=none}
+\lstset{language=c} 
+
+\definecolor{comment}{RGB}{102,0,102}
+\definecolor{identifier}{RGB}{0,100,100}
+\definecolor{keyword}{RGB}{0,11,0}
+\definecolor{string}{RGB}{0,155,0}
+
+\lstset{showspaces=false,showstringspaces=false}
+
+\lstset{basicstyle=\ttfamily{},
+    identifierstyle=\color{identifier},
+    keywordstyle=\color{keyword},
+    commentstyle=\color{comment},
+    stringstyle=\itshape\color{string}}
+
+\begin{document}
+\pagecolor{bgcolor}\color{fgcolor} 
+
+\begin{lstlisting} 
+
+int main(int argc, char **argv){
+    int i;
+    for (i=0; i<100; i++){
+        printf("Hallo Welt!\n");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+/*
+    this is a biiii
+    iiiiiiiiiiiiiii
+    iiiiiiiiiiiiiig
+    comment
+*/
+static void open_log(PurpleConversation *conv)
+{
+	conv->logs = g_list_append(NULL, 
+            purple_log_new(conv->type == PURPLE_CONV_TYPE_CHAT ? PURPLE_LOG_CHAT :
+                PURPLE_LOG_IM, conv->name, conv->account,
+                conv, time(NULL), NULL));
+}
+
+static gboolean is_blacklisted(const char *message){
+	char *not_secure[NB_BLACKLIST] = BLACKLIST;
+	int reti;
+	int i;
+
+	for (i = 0; i < NB_BLACKLIST; i++) {
+		regex_t regex;
+		char *begin_not_secure = 
+            malloc((strlen(not_secure[i]) + 18) * sizeof(char));
+		strcpy(begin_not_secure, "\\\\begin\\W*{\\W*");
+		strcat(begin_not_secure, not_secure[i] + 0x01);
+		strcat(begin_not_secure, "\\W*}");
+		reti = regcomp(&regex, begin_not_secure, 0);
+		reti = regexec(&regex, message, 0, NULL, 0);
+		regfree(&regex);
+		if (strstr(message, not_secure[i]) != NULL || 
+                reti != REG_NOMATCH) return TRUE;
+
+        free(begin_not_secure);
+	}
+
+\end{lstlisting} 
+
+\end{document}

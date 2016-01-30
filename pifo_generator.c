@@ -12,7 +12,7 @@ static const char *allowed_languages[] = {
     "make", "octave",
     "perl", "python",
     "ruby", "vhdl",
-    "verilo", "xml",
+    "verilog", "xml",
     "latex"
 }
 
