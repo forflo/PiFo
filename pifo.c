@@ -414,12 +414,14 @@ void message_send_im(PurpleAccount *account,
 gboolean message_receive(PurpleAccount *account, 
         const char *who, const char **buffer, 
         PurpleConversation *conv, PurpleMessageFlags flags){
+    gchar *unescaped = purple_unescape_html(*buffer);
 
 #ifdef DEBUG
     printf("Message_received!\n");
 #endif
-    GString *wrapper = g_string_new(*buffer);
+    GString *wrapper = g_string_new(unescaped);
     GString *modified;
+    g_free(unescaped);
 
 	purple_debug_info("LaTeX", 
             "[message_receive()] Writing Message: %s\n", *buffer);
@@ -457,9 +459,11 @@ gboolean message_receive(PurpleAccount *account,
 }
 
 void message_send(PurpleConversation *conv, const char **buffer){
-    GString *wrapper = g_string_new(*buffer);
+    gchar *unescaped = purple_unescape_html(*buffer);
+    GString *wrapper = g_string_new(unescaped);
 	GString *modified;
 	gboolean smileys;
+    g_free(unescaped);
 
 #ifdef DEBUG
     printf("Message_send!\n");

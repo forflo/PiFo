@@ -55,7 +55,7 @@ GString *bgcolor_as_string(void);
     "\\lstset{numbers=%s,numberstyle=\\small{"\
     "\\ttfamily{}},stepnumber=1,numbersep=4pt}" \
     "\\lstset{tabsize=%s}"\
-    "\\lstset{breaklines=true,breakatwhitespace=true}"\
+    "\\lstset{breaklines=false,breakatwhitespace=false}"\
     "\\lstset{frame=%s}" \
     "\\lstset{language=%s}" \
     "\\definecolor{comment}{RGB}{102,0,102}" \
