@@ -55,6 +55,7 @@
 #include <libpurple/version.h>
 #include <pidgin/gtksmiley.h>
 
+#define INTRO "$"
 #define IMG_BEG "<img id=\""
 #define IMG_END "\">"
 #define BEG "[tex]"

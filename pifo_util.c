@@ -14,6 +14,8 @@ GString *get_unique_tmppath(void){
     temp = purple_mkstemp(&filename_temp,TRUE);
     fclose(temp);
     unlink(filename_temp);
+    g_string_append(result, filename_temp);
+    free(filename_temp);
 
     return result;
 }
@@ -24,7 +26,10 @@ GString *get_unique_tmppath(void){
 	int exitcode = -1, exitstatus;
 	pid_t child_id = 0;
 
-	purple_debug_misc("[execute()] LaTeX", "'%s' started\n", cmd[0]);
+	purple_debug_info("LaTeX",
+            "Execution of program"
+            "[%s] started\n", 
+            cmd[0]);
 
     child_id = fork();
 	switch (child_id) {
@@ -37,7 +42,6 @@ GString *get_unique_tmppath(void){
             purple_debug_error("LaTeX", 
                     "[execute()] Error while executing '%s'", 
                     "Could not fork");
-
             return exitcode;
             break;
         default:
@@ -49,16 +53,19 @@ GString *get_unique_tmppath(void){
 		if (WIFEXITED(exitstatus)) {
 			exitcode = WEXITSTATUS(exitstatus);
 			purple_debug_info("LaTeX", 
-                    "[execute()] '%s' ended normally with exitcode '%d'\n", 
+                    "[execute()] '%s' ended normally "
+                    "with exitcode '%d'\n", 
                     prog, exitcode);
 		} else {
 			purple_debug_error("LaTeX", 
-                    "[execute()] '%s' ended abnormally via the signal '%d'\n", 
+                    "[execute()] '%s' ended abnormally "
+                    "via the signal '%d'\n", 
                     prog, WTERMSIG(exitstatus));
         }
 	} else {
 		purple_debug_error("LaTeX", 
-                "[execute()] While executing '%s' the following error occured: '%s'(%d)\n", 
+                "Error while executing [%s]. "
+                "The following error occured: [%s](%d)\n", 
                 prog, strerror(errno), errno);
 	}
 

@@ -4,6 +4,8 @@
 #include "pifo_util.h"
 #include "pifo.h"
 
+#define DEBUG
+
 extern PurplePlugin *me;
 
 static const char *graphviz_command = "dot";
@@ -32,12 +34,9 @@ GString *fgcolor_as_string(void){
 	} else {
 		pidgin_fgcolor = purple_prefs_get_string("/pidgin/conversations/fgcolor");
 		rgb = strtol(pidgin_fgcolor + 1, NULL, 16);
-		purple_debug_info("LaTeX", "Numerical: %d\n", rgb);
-		purple_debug_info("LaTeX", "Found foregroundcolor '%s'\n", pidgin_fgcolor);
 		g_string_append_printf(result, "%d,%d,%d", 
                 rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
 	}
-	purple_debug_info("LaTeX", "Using '%s' for foreground\n", pidgin_fgcolor);
 
     return result;
 }
@@ -52,12 +51,9 @@ GString *bgcolor_as_string(){
 	} else {
 		pidgin_bgcolor = purple_prefs_get_string("/pidgin/conversations/bgcolor");
 		rgb = strtol(pidgin_bgcolor + 1, NULL, 16);
-		purple_debug_info("LaTeX", "Numerical: %d\n", rgb);
-		purple_debug_info("LaTeX", "Found backgroundcolor '%s'\n", pidgin_bgcolor);
 		g_string_append_printf(result, "%d,%d,%d", 
                 rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
 	}
-	purple_debug_info("LaTeX", "Using '%s' for background\n", pidgin_bgcolor);
 
     return result;
 }
@@ -67,17 +63,22 @@ GString *dispatch_command(const GString *command, const GString *snippet){
     GString *result;
     int i;
 
-    for (i=0; i<sizeof(allowed_languages); i++){
+    for (i=0; i<sizeof(allowed_languages)/sizeof(const char *); i++){
         if (!strcmp(command->str, allowed_languages[i])){
+            purple_debug_info("LaTeX", 
+                    "Running generate_latex_listing backend!\n");
             if (generate_latex_listing(snippet, 
-                        g_string_new(allowed_languages[i]), &result))
+                        g_string_new(allowed_languages[i]), &result)){
                 return result;
-            else 
+            } else {
                 return NULL;
+            }
         } 
     }
 
     if (!strcmp(command->str, graphviz_command)){
+        purple_debug_info("LaTeX", 
+                "Running generate_graphviz_png backend!\n");
         if (generate_graphviz_png(snippet, &result))
             return result;
         else 
@@ -85,6 +86,8 @@ GString *dispatch_command(const GString *command, const GString *snippet){
     }
 
     if (!strcmp(command->str, formula_command)){
+        purple_debug_info("LaTeX", 
+                "Running generate_latex_formula backend!\n");
         if (generate_latex_formula(snippet, &result))
             return result;
         else
@@ -99,6 +102,7 @@ gboolean generate_latex_listing(const GString *listing,
         const GString *language, GString **filename){
 
     FILE *transcript_file;
+    char *listing_temp = listing->str;
     gboolean returnval = TRUE;
 
     GString *fgcolor = fgcolor_as_string(),
@@ -108,6 +112,10 @@ gboolean generate_latex_listing(const GString *listing,
 
     setup_files(&texfilepath, &dvifilepath, 
                 &pngfilepath, &auxfilepath, &logfilepath);
+
+    purple_debug_info("LaTex", 
+            "Using [%s] as latex file\n", 
+            texfilepath->str);
 
     if (!chtempdir(texfilepath)){
         returnval = FALSE;
@@ -119,13 +127,31 @@ gboolean generate_latex_listing(const GString *listing,
         goto out;
     }
 
+	purple_debug_info("LaTeX", 
+            "Using [%s] as foreground and [%s] as background\n",
+            fgcolor->str, bgcolor->str);
+
+    /* temporary cut off { and } */
+    listing_temp[listing->len - 1] = '\0';
+    listing_temp++;
+
+#ifdef DEBUG
+	printf("transcript_file: " LATEX_LST_TEMPLATE "\n", 
+            fgcolor->str, bgcolor->str, 
+            "none", "5", "none", language->str, 
+            listing_temp);
+#endif
     /* Generate latex template file */
-	fprintf(transcript_file, LATEX_LST_TEMPLATE(%s,%s,%s,%s,%s,%s,%s), 
-            "left", "4", "none", language->str, 
-            fgcolor->str, bgcolor->str, listing->str);
+	fprintf(transcript_file, LATEX_LST_TEMPLATE, 
+            fgcolor->str, bgcolor->str, 
+            "none", "5", "none", language->str, 
+            listing_temp);
 	fclose(transcript_file);
 
-    if (exec_latex(pngfilepath, texfilepath, dvifilepath) == FALSE){
+    listing_temp--;
+    listing_temp[listing->len - 1] = '}';
+
+    if (render_latex(pngfilepath, texfilepath, dvifilepath) == TRUE){
         *filename = pngfilepath;
     } else {
 	    purple_debug_info("LaTeX", 
@@ -193,7 +219,7 @@ gboolean chtempdir(const GString *path){
     return TRUE;
 }
 
- gboolean exec_latex(const GString *pngfilepath, 
+gboolean render_latex(const GString *pngfilepath, 
         const GString *texfilepath, const GString *dvifilepath){
     gboolean exec_ok;
     /* Make sure that latex cannot do shell escape, even
@@ -215,8 +241,11 @@ gboolean chtempdir(const GString *path){
 	exec_ok = (execute("latex", latexopts) == 0) &&
               (execute("dvipng", dvipngopts) == 0);
 
-    if (!exec_ok)
+    if (!exec_ok){
+        purple_debug_info("LaTeX",
+                "Could not render latex string!\n");
         return FALSE;
+    }
 
     return TRUE;
 }
@@ -254,7 +283,7 @@ gboolean generate_latex_formula(const GString *formula,
 	fclose(transcript_file);
 
 
-    if (exec_latex(pngfilepath, texfilepath, dvifilepath) == FALSE){
+    if (render_latex(pngfilepath, texfilepath, dvifilepath) == TRUE){
         *filename_png = pngfilepath;
     } else {
 	    purple_debug_info("LaTeX", 
@@ -262,6 +291,8 @@ gboolean generate_latex_formula(const GString *formula,
         returnval = FALSE;
         g_string_free(pngfilepath, TRUE);
     }
+
+    goto out;
 
 out:
     unlink(texfilepath->str);

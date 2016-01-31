@@ -16,7 +16,7 @@ gboolean generate_graphviz_png(const GString *dotcode,
 gboolean generate_latex_formula(const GString *formula, 
         GString **filename_png);
 
-gboolean exec_latex(const GString *pngfilepath, 
+gboolean render_latex(const GString *pngfilepath, 
         const GString *texfilepath, const GString *dvifilepath);
 
 gboolean chtempdir(const GString *path);
@@ -37,22 +37,21 @@ GString *bgcolor_as_string(void);
     "\\end{gather*}" \
     "\\end{document}"
 
-//7parameters
-#define LATEX_LST_TEMPLATE(NUMBERS,TABSIZE,FRAME,LANGUAGE,FCOLOR,BCOLOR,LISTING) \
+#define LATEX_LST_TEMPLATE \
     "\\documentclass[12pt]{article}" \
     "\\usepackage{color}" \
     "\\usepackage{listings}" \
-    "\\definecolor{fgcolor}{RGB}{" #FCOLOR "} " \
-    "\\definecolor{bgcolor}{RGB}{" #BCOLOR "} " \
-    "\\lstset{numbers=" #NUMBERS ",numberstyle=\\small{"\
+    "\\definecolor{fgcolor}{RGB}{%s} " \
+    "\\definecolor{bgcolor}{RGB}{%s} " \
+    "\\lstset{numbers=%s,numberstyle=\\small{"\
     "\\ttfamily{}},stepnumber=1,numbersep=4pt}" \
-    "\\lstset{tabsize=" #TABSIZE "}"\
+    "\\lstset{tabsize=%s}"\
     "\\lstset{breaklines=true,breakatwhitespace=true}"\
-    "\\lstset{frame=" #FRAME "}" \
-    "\\lstset{language=" #LANGUAGE "}" \
+    "\\lstset{frame=%s}" \
+    "\\lstset{language=%s}" \
     "\\definecolor{comment}{RGB}{102,0,102}" \
-    "\\definecolor{identifier}{RGB}{0,100,100}" \
-    "\\definecolor{keyword}{RGB}{0,11,0}" \
+    "\\definecolor{keyword}{RGB}{0,100,100}" \
+    "\\definecolor{identifier}{RGB}{0,11,0}" \
     "\\definecolor{string}{RGB}{0,155,0}" \
     "\\lstset{showspaces=false,showstringspaces=false}" \
     "\\lstset{basicstyle=\\ttfamily{}," \
@@ -61,9 +60,10 @@ GString *bgcolor_as_string(void);
     "    commentstyle=\\color{comment}," \
     "    stringstyle=\\itshape\\color{string}}" \
     "\\begin{document}" \
+    "\\pagenumbering{gobble}" \
     "\\pagecolor{bgcolor}\\color{fgcolor} " \
-    "\\begin{lstlisting\n}" \
-        #LISTING \
+    "\\begin{lstlisting}\n" \
+        "%s" \
     "\n\\end{lstlisting}" \
     "\\end{document}"
 

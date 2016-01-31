@@ -43,13 +43,13 @@
 #include <sys/types.h>
 
 #ifndef MAX
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#   define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 
 PurplePlugin *me;
 
 gboolean contains_work(const char *message){
-    if (strstr(message, "$"))
+    if (strstr(message, INTRO))
         return TRUE;
     return FALSE;
 }
@@ -85,14 +85,15 @@ gboolean is_blacklisted(const char *message){
 	return FALSE;
 }
 
+/* TODO tokenize using a DFSM */
 GPtrArray *get_commands(const GString *buffer){
     GPtrArray *commands = g_ptr_array_new();
     GString *command = NULL;
-    char current;
     int i;
 
-    for (i=0; i<buffer->len; i++){
+    printf("In get commands! Buffer: %s\n", buffer->str);
 
+    for (i=0; i<buffer->len; i++){
         if (buffer->str[i] == '$') {
             command = g_string_new(NULL);
             i++;
@@ -104,6 +105,14 @@ GPtrArray *get_commands(const GString *buffer){
         }
     }
 
+#ifdef DEBUG
+    for (i=0; i<commands->len; i++){
+        command = g_ptr_array_index(commands, i);
+
+        printf("Salvaged command #%i = [%s]\n", i, command->str);
+    }
+#endif
+
     return commands;
 }
 
@@ -114,17 +123,19 @@ GPtrArray *get_snippets(const GString *buffer){
     int stackcnt = 0;
     char current;
 
-
     for (i=0; i<buffer->len; i++){
         current = buffer->str[i];
 
         if (current == '{' && stackcnt == 0){
             snippet = g_string_new(NULL);
             stackcnt++;
+            g_string_append_c(snippet, current);
             continue;
         }
 
         if (stackcnt > 0) {
+            g_string_append_c(snippet, current);
+
             if (current == '{'){
                 stackcnt++;
             }
@@ -134,18 +145,25 @@ GPtrArray *get_snippets(const GString *buffer){
                 if (stackcnt == 0)
                     g_ptr_array_add(snippets, snippet);
             }
-
-            g_string_append_c(snippet, current);
         }
     }
+
+#ifdef DEBUG
+    for (i=0; i<snippets->len; i++){
+        snippet = g_ptr_array_index(snippets, i);
+
+        printf("Salvaged snippet #%i = [%s]\n", i, snippet->str);
+    }
+#endif
 
     return snippets;
 }
 
 GString *replace(const GString *original, 
         const GString *command, const GString *snippet, int id){
+
     GString *replacer = g_string_new(IMG_BEG);
-    GString *to_replace = g_string_new("\\");
+    GString *to_replace = g_string_new(INTRO);
     char idbuffer[10];
     char *new_msg;
     GString *result;
@@ -157,6 +175,10 @@ GString *replace(const GString *original,
     g_string_append(replacer, idbuffer);
     g_string_append(replacer, IMG_END);
 
+#ifdef DEBUG
+    printf("replace: %s with %s\n", to_replace->str, replacer->str);
+#endif
+
     new_msg = str_replace(original->str, to_replace->str, replacer->str);
 
     g_string_free(replacer, TRUE);
@@ -164,6 +186,10 @@ GString *replace(const GString *original,
 
     result = g_string_new(new_msg);
     free(new_msg);
+
+#ifdef DEBUG
+    printf("result: %s\n", result->str);
+#endif 
 
     return result;
 }
@@ -180,15 +206,13 @@ char *str_replace(const char *orig, const char *rep, const char *with) {
     int len_front; // distance between rep and end of last rep
     int count;    // number of replacements
 
-    if (!orig)
+    if (!orig || !rep || !with)
         return NULL;
-    if (!rep)
-        rep = "";
+
     len_rep = strlen(rep);
-    if (!with)
-        with = "";
     len_with = strlen(with);
 
+    /* count occurences of rep in orig */
     ins = orig;
     for (count = 0; tmp = strstr(ins, rep); ++count) {
         ins = tmp + len_rep;
@@ -223,10 +247,11 @@ int load_image(const GString *resulting_png){
 
 	if (!g_file_get_contents(resulting_png->str, &filedata, &size, &error)) {
 		purple_notify_error(me, "LaTeX", 
-                "Error while reading the generated image!", error->message);
+                "Error while reading the rendered markup [%s]", 
+                error->message);
 		g_error_free(error);
 
-		return FALSE;
+		return -1;
 	}
 
 	img_id = purple_imgstore_add_with_id(filedata, 
@@ -281,6 +306,7 @@ GString *modify_message(const GString *message){
 		purple_notify_error(me, "LaTeX", 
                 "Error while analysing the message!", 
                 "Different amounts of snippets and commands!");
+        return NULL;
     }
 
     for (i=0; i<commands->len; i++){
@@ -288,13 +314,37 @@ GString *modify_message(const GString *message){
         snippet = g_ptr_array_index(snippets, i);
 
         picpath = dispatch_command(command, snippet);
+        if (picpath == NULL){
+            purple_debug_info("LaTeX", 
+                    "Could not dispatch command: [%s(%s,%s)]\n",
+                    "dispatch_command", command->str, snippet->str);
+            return NULL;
+        }
+
         image_id = load_image(picpath);
 
+        if(image_id == -1){
+            return NULL;  
+        }
+
         new = replace(old, command, snippet, image_id);
+
+        unlink(picpath->str);
         g_string_free(old, TRUE);
         g_string_free(picpath, TRUE);
+
         old = new;
     }
+
+    purple_debug_info("LaTeX",
+            "Changed message from [%s] to [%s]\n",
+            message->str, new->str);
+
+#ifdef DEBUG
+    printf("LaTeX",
+            "Changed message from [%s] to [%s]\n",
+            message->str, new->str);
+#endif 
 
     free_snippets(snippets);
     free_commands(commands);
@@ -342,10 +392,71 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
 	return TRUE;
 }
 
+void message_send_chat(PurpleAccount *account, 
+        const char **buffer, int id){
+	PurpleConnection *conn = purple_account_get_connection(account);
+	message_send(purple_find_chat(conn, id), buffer);
+}
+
+void message_send_im(PurpleAccount *account, 
+        const char *who, const char **buffer){
+	message_send(purple_find_conversation_with_account(
+                PURPLE_CONV_TYPE_IM, who, account), buffer);
+}
+
+gboolean message_receive(PurpleAccount *account, 
+        const char *who, const char **buffer, 
+        PurpleConversation *conv, PurpleMessageFlags flags){
+
+#ifdef DEBUG
+    printf("Message_received!\n");
+#endif
+    GString *wrapper = g_string_new(*buffer);
+    GString *modified;
+
+	purple_debug_info("LaTeX", 
+            "[message_receive()] Writing Message: %s\n", *buffer);
+
+	if (!contains_work(*buffer)){
+        g_string_free(wrapper, TRUE);
+		return FALSE;
+	}
+
+	if (is_blacklisted(*buffer)) {
+		purple_debug_info("LaTeX", 
+                "Message not analysed, because it contained blacklisted code.\n");
+        g_string_free(wrapper, TRUE);
+		return FALSE;
+	}
+
+
+	purple_debug_info("LaTeX", 
+            "[message_receive()] Analyse: %s\n", *buffer);
+
+    modified = modify_message(wrapper);
+    if (modified == NULL){
+        purple_debug_info("LaTeX", 
+                "Message could not be modified: %s",
+                "modify_message()");
+        return FALSE;
+    }
+
+	pidgin_latex_write(conv, who, modified->str, flags, *buffer);
+
+    g_string_free(modified, TRUE);
+    g_string_free(wrapper, TRUE);
+
+	return TRUE;
+}
+
 void message_send(PurpleConversation *conv, const char **buffer){
     GString *wrapper = g_string_new(*buffer);
 	GString *modified;
 	gboolean smileys;
+
+#ifdef DEBUG
+    printf("Message_send!\n");
+#endif
 
 	purple_debug_info("LaTeX", 
             "[message_send()] Sending Message: %s\n", *buffer);
@@ -367,51 +478,6 @@ void message_send(PurpleConversation *conv, const char **buffer){
     return;
 }
 
-void message_send_chat(PurpleAccount *account, 
-        const char **buffer, int id){
-	PurpleConnection *conn = purple_account_get_connection(account);
-	message_send(purple_find_chat(conn, id), buffer);
-}
-
-void message_send_im(PurpleAccount *account, 
-        const char *who, const char **buffer){
-	message_send(purple_find_conversation_with_account(
-                PURPLE_CONV_TYPE_IM, who, account), buffer);
-}
-
-gboolean message_receive(PurpleAccount *account, 
-        const char *who, const char **buffer, 
-        PurpleConversation *conv, PurpleMessageFlags flags){
-
-    GString *wrapper = g_string_new(*buffer);
-    GString *modified;
-
-	purple_debug_info("LaTeX", 
-            "[message_receive()] Writing Message: %s\n", *buffer);
-
-	if (!contains_work(*buffer)){
-        g_string_free(wrapper, TRUE);
-		return FALSE;
-	}
-
-	if (is_blacklisted(*buffer)) {
-		purple_debug_info("LaTeX", 
-                "Message not analysed, because it contained blacklisted code.\n");
-        g_string_free(wrapper, TRUE);
-		return FALSE;
-	}
-
-	purple_debug_info("LaTeX", 
-            "[message_receive()] Analyse: %s\n", *buffer);
-
-    modified = modify_message(wrapper);
-	pidgin_latex_write(conv, who, modified->str, flags, *buffer);
-
-    g_string_free(modified, TRUE);
-    g_string_free(wrapper, TRUE);
-
-	return TRUE;
-}
 
 gboolean plugin_load(PurplePlugin *plugin){
 	void *conv_handle = purple_conversations_get_handle();
