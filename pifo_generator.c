@@ -1,16 +1,11 @@
+#include <string.h>
+
 #include "pifo_generator.h"
+#include "pifo_util.h"
 #include "pifo.h"
 
-static gboolean generate_latex_listing(const GString *listing, 
-        const GString *language, GString **filename);
-static gboolean generate_graphviz_png(GString *dotcode,
-        GString **filename);
-static gboolean generate_latex_formula(GString *formula, 
-        GString **filename);
+extern PurplePlugin *me;
 
-static GString *dispatch_command(const GString *command, const GString *snippet);
-static GString *fgcolor_as_string();
-static GString *fgcolor_as_string();
 static const char *graphviz_command = "dot";
 static const char *formula_command = "formula";
 static const char *allowed_languages[] = {
@@ -24,16 +19,16 @@ static const char *allowed_languages[] = {
     "ruby", "vhdl",
     "verilog", "xml",
     "latex"
-}
+};
 
-static GString *fgcolor_as_string(){
+GString *fgcolor_as_string(void){
     GString *result = g_string_new(NULL);
 	int rgb;
 	char const *pidgin_fgcolor;
     /* Gather some information about the current pidgin settings
      * so that we can populate the latex template file appropriately */
 	if (!strcmp(purple_prefs_get_string("/pidgin/conversations/fgcolor"), "")) {
-        g_string_append("0,0,0");
+        g_string_append(result, "0,0,0");
 	} else {
 		pidgin_fgcolor = purple_prefs_get_string("/pidgin/conversations/fgcolor");
 		rgb = strtol(pidgin_fgcolor + 1, NULL, 16);
@@ -42,12 +37,12 @@ static GString *fgcolor_as_string(){
 		g_string_append_printf(result, "%d,%d,%d", 
                 rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
 	}
-	purple_debug_info("LaTeX", "Using '%s' for foreground\n", fgcolor);
+	purple_debug_info("LaTeX", "Using '%s' for foreground\n", pidgin_fgcolor);
 
     return result;
 }
 
-static GString *fgcolor_as_string(){
+GString *bgcolor_as_string(){
     GString *result = g_string_new(NULL);
 	int rgb;
 	char const *pidgin_bgcolor;
@@ -62,20 +57,20 @@ static GString *fgcolor_as_string(){
 		g_string_append_printf(result, "%d,%d,%d", 
                 rgb >> 16, (rgb >> 8) & 0xff, rgb & 0xff);
 	}
-	purple_debug_info("LaTeX", "Using '%s' for background\n", bgcolor);
+	purple_debug_info("LaTeX", "Using '%s' for background\n", pidgin_bgcolor);
 
     return result;
 }
 
 /* Used to parse the command and trigger appropriate compilier runs */
-static GString *dispatch_command(const GString *command, const GString *snippet){
+GString *dispatch_command(const GString *command, const GString *snippet){
     GString *result;
     int i;
 
     for (i=0; i<sizeof(allowed_languages); i++){
         if (!strcmp(command->str, allowed_languages[i])){
             if (generate_latex_listing(snippet, 
-                        g_new_string(allowed_languages[i]), &result));
+                        g_string_new(allowed_languages[i]), &result))
                 return result;
             else 
                 return NULL;
@@ -100,29 +95,26 @@ static GString *dispatch_command(const GString *command, const GString *snippet)
 }
 
 
-static gboolean generate_latex_listing(const GString *listing, 
+gboolean generate_latex_listing(const GString *listing, 
         const GString *language, GString **filename){
 
     FILE *transcript_file;
     gboolean returnval = TRUE;
 
-    GString *fgcolor = fgcolor_as_string();
+    GString *fgcolor = fgcolor_as_string(),
             *bgcolor = bgcolor_as_string();
     GString *texfilepath, *dvifilepath, 
-            *pngfilepath, *auxfilepath, *logfilepath
+            *pngfilepath, *auxfilepath, *logfilepath;
 
     setup_files(&texfilepath, &dvifilepath, 
                 &pngfilepath, &auxfilepath, &logfilepath);
 
-    if (!chtempdir(texfilepath->str)){
+    if (!chtempdir(texfilepath)){
         returnval = FALSE;
         goto out;
     } 
 
 	if (!(transcript_file = fopen(texfilepath->str, "w"))){
-		purple_notify_error(me, "LaTeX", 
-                "Error while trying to transcript LaTeX!", 
-                "Error opening file!");
         returnval = FALSE;
         goto out;
     }
@@ -134,13 +126,12 @@ static gboolean generate_latex_listing(const GString *listing,
 	fclose(transcript_file);
 
     if (exec_latex(pngfilepath, texfilepath, dvifilepath) == FALSE){
-        *filename_png = pngfilepath;
+        *filename = pngfilepath;
     } else {
 	    purple_debug_info("LaTeX", 
-                "Image creation exited with status '%d'\n", 
-                !exec_ok);
+                "Image creation exited with failure\n");
         returnval = FALSE;
-        g_string_free(pngfilepath);
+        g_string_free(pngfilepath, TRUE);
         *filename = NULL;
     }
 
@@ -150,24 +141,23 @@ out:
     unlink(auxfilepath->str);
     unlink(logfilepath->str);
 
-    g_string_free(texfilepath);
-    g_string_free(auxfilepath);
-    g_string_free(logfilepath);
-    g_string_free(dvifilepath);
-    g_string_free(tmpfilepath);
+    g_string_free(texfilepath, TRUE);
+    g_string_free(auxfilepath, TRUE);
+    g_string_free(logfilepath, TRUE);
+    g_string_free(dvifilepath, TRUE);
 
     return returnval;
 }
 
 
 /* Currently not implemented */
-static gboolean generate_graphviz_png(GString *dotcode,
+gboolean generate_graphviz_png(const GString *dotcode,
         GString **filename){
     *filename = NULL;
     return FALSE;
 }
 
-static gboolean setup_files(GString **tex, 
+gboolean setup_files(GString **tex, 
         GString **dvi, GString **png,
         GString **aux, GString **log){
 
@@ -180,30 +170,22 @@ static gboolean setup_files(GString **tex,
     *aux = g_string_new(tmpfilepath->str);
     *log = g_string_new(tmpfilepath->str);
 
-    g_string_append(texfilepath, ".tex");
-    g_string_append(dvifilepath, ".dvi");
-    g_string_append(pngfilepath, ".png");
-    g_string_append(logfilepath, ".log");
-    g_string_append(auxfilepath, ".aux");
+    g_string_append(*tex, ".tex");
+    g_string_append(*dvi, ".dvi");
+    g_string_append(*png, ".png");
+    g_string_append(*log, ".log");
+    g_string_append(*aux, ".aux");
 
     return TRUE;
 }
 
-static gboolean chtempdir(const GString *path){
+gboolean chtempdir(const GString *path){
     char *dirname_temp = getdirname(path->str);
 	if (dirname_temp == NULL){
-		purple_notify_error(me, "LaTeX", 
-                "Error while trying to transcript LaTeX!", 
-                "Couldnt allocate memory for path");
-
         return FALSE;
 	}
 
     if (chdir(dirname_temp) == -1){
-		purple_notify_error(me, "LaTeX", 
-                "Error while trying to transcript LaTeX!", 
-                "Couldn't cange to temporary directory");
-         
         free(dirname_temp);
         return FALSE;
     }
@@ -211,7 +193,7 @@ static gboolean chtempdir(const GString *path){
     return TRUE;
 }
 
-static gboolean exec_latex(const GString *pngfilepath, 
+ gboolean exec_latex(const GString *pngfilepath, 
         const GString *texfilepath, const GString *dvifilepath){
     gboolean exec_ok;
     /* Make sure that latex cannot do shell escape, even
@@ -239,21 +221,21 @@ static gboolean exec_latex(const GString *pngfilepath,
     return TRUE;
 }
 
-static gboolean generate_latex_formula(const GString *formula, 
+gboolean generate_latex_formula(const GString *formula, 
         GString **filename_png){
     FILE *transcript_file;
     gboolean returnval = TRUE;
 
-    GString *fgcolor = fgcolor_as_string();
+    GString *fgcolor = fgcolor_as_string(),
             *bgcolor = bgcolor_as_string();
 
     GString *texfilepath, *dvifilepath, 
-            *pngfilepath, *auxfilepath, *logfilepath
+            *pngfilepath, *auxfilepath, *logfilepath;
 
     setup_files(&texfilepath, &dvifilepath, 
                 &pngfilepath, &auxfilepath, &logfilepath);
 
-    if (!chtempdir(texfilepath->str)){
+    if (!chtempdir(texfilepath)){
         returnval = FALSE;
         goto out;
     } 
@@ -276,10 +258,9 @@ static gboolean generate_latex_formula(const GString *formula,
         *filename_png = pngfilepath;
     } else {
 	    purple_debug_info("LaTeX", 
-                "Image creation exited with status '%d'\n", 
-                !exec_ok);
+                "Image creation exited with failure status\n");
         returnval = FALSE;
-        g_string_free(pngfilepath);
+        g_string_free(pngfilepath, TRUE);
     }
 
 out:
@@ -288,11 +269,10 @@ out:
     unlink(auxfilepath->str);
     unlink(logfilepath->str);
 
-    g_string_free(texfilepath);
-    g_string_free(auxfilepath);
-    g_string_free(logfilepath);
-    g_string_free(dvifilepath);
-    g_string_free(tmpfilepath);
+    g_string_free(texfilepath, TRUE);
+    g_string_free(auxfilepath, TRUE);
+    g_string_free(logfilepath, TRUE);
+    g_string_free(dvifilepath, TRUE);
 
     return returnval;
 }

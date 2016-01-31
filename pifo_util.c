@@ -1,12 +1,12 @@
-#include "pifo.h"
 #include "pifo_util.h"
+#include "pifo.h"
+#include "pifo_generator.h"
+#include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
 
-static GString *get_unique_tmppath(void);
-static int execute(const char *prog, char * const cmd[]);
-static char* getfilename(const char const *file);
-static char* getdirname(const char const *file);
-
-static GString *get_unique_tmppath(void){
+GString *get_unique_tmppath(void){
     FILE *temp;
     char *filename_temp;
     GString *result = g_string_new(NULL);
@@ -19,7 +19,7 @@ static GString *get_unique_tmppath(void){
 }
 
 /* Helper function for command execution */
-static int execute(const char *prog, char * const cmd[]){
+ int execute(const char *prog, char * const cmd[]){
 	int i = 0;
 	int exitcode = -1, exitstatus;
 	pid_t child_id = 0;
@@ -68,7 +68,7 @@ static int execute(const char *prog, char * const cmd[]){
 /* Cuts off the file name in file leaving you with just the path.
  * The function also makes a new copy of the string on the heap. 
  */
-static char* getdirname(const char const *file){
+ char* getdirname(const char const *file){
 	char *s = NULL;
 	char *r = NULL;
 	s = strrchr(file, G_DIR_SEPARATOR);
@@ -93,7 +93,7 @@ static char* getdirname(const char const *file){
 /* Cuts off the path part of file leaving you with just the
  * filename. The Function also generates a new string on the heap.
  */
-static char* getfilename(const char const *file){
+ char* getfilename(const char const *file){
 	char *s = NULL;
 	char *r = NULL;
 	s = strrchr(file, G_DIR_SEPARATOR);

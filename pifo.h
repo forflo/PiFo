@@ -55,13 +55,10 @@
 #include <libpurple/version.h>
 #include <pidgin/gtksmiley.h>
 
-#define IMG_BEGIN "<img id=\""
+#define IMG_BEG "<img id=\""
 #define IMG_END "\">"
 #define BEG "[tex]"
 #define END "[/tex]"
-#define KOPETE_END "}"
-#define KOPETE_TEX_BEGIN "\\f{"
-#define LISTING_TEX_BEGIN "\\l{"
 #define LATEX_PLUGIN_ID "qjuh-LaTeX"
 #define WEBSITE "http://sourceforge.net/projects/pidgin-latex/"
 #define FILTER_AND "&amp;"
@@ -72,31 +69,31 @@
 #define NB_BLACKLIST (42)
 #define BLACKLIST { "\\def", "\\let", "\\futurelet", "\\newcommand", "\\renewcommand", "\\else", "\\fi", "\\write", "\\input", "\\include", "\\chardef", "\\catcode", "\\makeatletter", "\\noexpand", "\\toksdef", "\\every", "\\errhelp", "\\errorstopmode", "\\scrollmode", "\\nonstopmode", "\\batchmode", "\\read", "\\csname", "\\newhelp", "\\relax", "\\afterground", "\\afterassignment", "\\expandafter", "\\noexpand", "\\special", "\\command", "\\loop", "\\repeat", "\\toks", "\\output", "\\line", "\\mathcode", "\\name", "\\item", "\\section", "\\mbox", "\\DeclareRobustCommand" }
 
-static const char *str_replace(const char *orig, const char *rep, const char *with);
-static GString *modify_message(const GString *message);
-static gboolean is_blacklisted(const char *message);
-static void open_log(PurpleConversation *conv);
-static gboolean contains_work(const char *message);
-static GPtrArray *get_commands(GString *buffer);
-static GPtrArray *get_snippets(GString *buffer);
-static GString *replace(const GString *original, 
+ char *str_replace(const char *orig, const char *rep, const char *with);
+ GString *modify_message(const GString *message);
+ gboolean is_blacklisted(const char *message);
+ void open_log(PurpleConversation *conv);
+ gboolean contains_work(const char *message);
+ GPtrArray *get_commands(const GString *buffer);
+ GPtrArray *get_snippets(const GString *buffer);
+ GString *replace(const GString *original, 
         const GString *command, const GString *snippet, int id);
-static int load_imgage(const GString *resulting_png);
-static gboolean free_commands(const GPtrArray *commands);
-static gboolean free_snippets(const GPtrArray *commands);
-static GString *modify_message(const GString *message);
-static gboolean pidgin_latex_write(PurpleConversation *conv, 
+ int load_image(const GString *resulting_png);
+ gboolean free_commands(const GPtrArray *commands);
+ gboolean free_snippets(const GPtrArray *commands);
+ GString *modify_message(const GString *message);
+ gboolean pidgin_latex_write(PurpleConversation *conv, 
         const char *nom, const char *message, 
         PurpleMessageFlags messFlag, const char *original);
-static void message_send(PurpleConversation *conv, char **buffer);
-static gboolean message_receive(PurpleAccount *account, 
+ void message_send(PurpleConversation *conv, const char **buffer);
+ gboolean message_receive(PurpleAccount *account, 
         const char *who, const char **buffer, 
         PurpleConversation *conv, PurpleMessageFlags flags);
-static gboolean plugin_load(PurplePlugin *plugin);
-static void message_send_chat(PurpleAccount *account, 
+ gboolean plugin_load(PurplePlugin *plugin);
+ void message_send_chat(PurpleAccount *account, 
         const char **buffer, int id);
-static void message_send_im(PurpleAccount *account, 
+ void message_send_im(PurpleAccount *account, 
         const char *who, const char **buffer);
-static gboolean plugin_unload(PurplePlugin * plugin);
+ gboolean plugin_unload(PurplePlugin * plugin);
 
 #endif

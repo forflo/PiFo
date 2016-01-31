@@ -29,7 +29,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA, 02110-1301, USA
  *
  */
+#define DEBUG
+
 #include "pifo.h"
+#include "pifo_util.h"
+#include "pifo_generator.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -42,24 +46,22 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 
+PurplePlugin *me;
 
-static PurplePlugin *me;
-
-static gboolean contains_work(const char *message){
+gboolean contains_work(const char *message){
     if (strstr(message, "$"))
         return TRUE;
     return FALSE;
 }
 
-static void open_log(PurpleConversation *conv)
-{
+void open_log(PurpleConversation *conv) {
 	conv->logs = g_list_append(NULL, 
             purple_log_new(conv->type == PURPLE_CONV_TYPE_CHAT ? PURPLE_LOG_CHAT :
                 PURPLE_LOG_IM, conv->name, conv->account,
                 conv, time(NULL), NULL));
 }
 
-static gboolean is_blacklisted(const char *message){
+gboolean is_blacklisted(const char *message){
 	char *not_secure[NB_BLACKLIST] = BLACKLIST;
 	int reti;
 	int i;
@@ -83,9 +85,9 @@ static gboolean is_blacklisted(const char *message){
 	return FALSE;
 }
 
-static GPtrArray *get_commands(GString *buffer){
+GPtrArray *get_commands(const GString *buffer){
     GPtrArray *commands = g_ptr_array_new();
-    GString *command = NULL
+    GString *command = NULL;
     char current;
     int i;
 
@@ -105,7 +107,7 @@ static GPtrArray *get_commands(GString *buffer){
     return commands;
 }
 
-static GPtrArray *get_snippets(GString *buffer){
+GPtrArray *get_snippets(const GString *buffer){
     GPtrArray *snippets = g_ptr_array_new();
     GString *snippet = NULL;
     int i;
@@ -140,7 +142,7 @@ static GPtrArray *get_snippets(GString *buffer){
     return snippets;
 }
 
-static GString *replace(const GString *original, 
+GString *replace(const GString *original, 
         const GString *command, const GString *snippet, int id){
     GString *replacer = g_string_new(IMG_BEG);
     GString *to_replace = g_string_new("\\");
@@ -169,7 +171,7 @@ static GString *replace(const GString *original,
 
 /* Credit to http://stackoverflow.com/questions/779875/
  * what-is-the-function-to-replace-string-in-c*/
-static char *str_replace(const char *orig, const char *rep, const char *with) {
+char *str_replace(const char *orig, const char *rep, const char *with) {
     char *result; // the return string
     char *ins;    // the next insert point
     char *tmp;    // varies
@@ -213,7 +215,7 @@ static char *str_replace(const char *orig, const char *rep, const char *with) {
     return result;
 }
 
-static int load_imgage(const GString *resulting_png){
+int load_image(const GString *resulting_png){
     int img_id = 0;
     gchar *filedata;
     gsize size;
@@ -223,7 +225,7 @@ static int load_imgage(const GString *resulting_png){
 		purple_notify_error(me, "LaTeX", 
                 "Error while reading the generated image!", error->message);
 		g_error_free(error);
-		free(shortcut);
+
 		return FALSE;
 	}
 
@@ -240,18 +242,18 @@ static int load_imgage(const GString *resulting_png){
     return img_id;
 }
 
-static gboolean free_commands(const GPtrArray *commands){
+gboolean free_commands(const GPtrArray *commands){
     int i;
     GString *command;
     for (i=0; i<commands->len; i++){
-        snippet = g_ptr_array_index(commands, i);
+        command = g_ptr_array_index(commands, i);
         g_string_free(command, TRUE);
     }
 
     return TRUE;
 }
 
-static gboolean free_snippets(const GPtrArray *snippets){
+gboolean free_snippets(const GPtrArray *snippets){
     int i;
     GString *snippet;
     for (i=0; i<snippets->len; i++){
@@ -262,7 +264,7 @@ static gboolean free_snippets(const GPtrArray *snippets){
     return TRUE;
 }
 
-static GString *modify_message(const GString *message){
+GString *modify_message(const GString *message){
     int image_id;
     int i;
 
@@ -281,7 +283,6 @@ static GString *modify_message(const GString *message){
                 "Different amounts of snippets and commands!");
     }
 
-    result = message;
     for (i=0; i<commands->len; i++){
         command = g_ptr_array_index(commands, i);
         snippet = g_ptr_array_index(snippets, i);
@@ -304,7 +305,7 @@ static GString *modify_message(const GString *message){
 }
 
 //TODO: Check sanity of this function!
-static gboolean pidgin_latex_write(PurpleConversation *conv, 
+gboolean pidgin_latex_write(PurpleConversation *conv, 
         const char *nom, const char *message, 
         PurpleMessageFlags messFlag, const char *original){
 
@@ -326,7 +327,6 @@ static gboolean pidgin_latex_write(PurpleConversation *conv,
 		purple_conversation_set_logging(conv, FALSE);
 	}
 
-    /* Write trimmed message. */
 	if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_CHAT){
 		purple_conv_chat_write(PURPLE_CONV_CHAT(conv), 
                 nom, message, messFlag, time(NULL));
@@ -342,7 +342,7 @@ static gboolean pidgin_latex_write(PurpleConversation *conv,
 	return TRUE;
 }
 
-static void message_send(PurpleConversation *conv, char **buffer){
+void message_send(PurpleConversation *conv, const char **buffer){
     GString *wrapper = g_string_new(*buffer);
 	GString *modified;
 	gboolean smileys;
@@ -367,19 +367,19 @@ static void message_send(PurpleConversation *conv, char **buffer){
     return;
 }
 
-static void message_send_chat(PurpleAccount *account, 
+void message_send_chat(PurpleAccount *account, 
         const char **buffer, int id){
 	PurpleConnection *conn = purple_account_get_connection(account);
 	message_send(purple_find_chat(conn, id), buffer);
 }
 
-static void message_send_im(PurpleAccount *account, 
+void message_send_im(PurpleAccount *account, 
         const char *who, const char **buffer){
 	message_send(purple_find_conversation_with_account(
                 PURPLE_CONV_TYPE_IM, who, account), buffer);
 }
 
-static gboolean message_receive(PurpleAccount *account, 
+gboolean message_receive(PurpleAccount *account, 
         const char *who, const char **buffer, 
         PurpleConversation *conv, PurpleMessageFlags flags){
 
@@ -413,7 +413,7 @@ static gboolean message_receive(PurpleAccount *account,
 	return TRUE;
 }
 
-static gboolean plugin_load(PurplePlugin *plugin){
+gboolean plugin_load(PurplePlugin *plugin){
 	void *conv_handle = purple_conversations_get_handle();
 
 	me = plugin;
@@ -434,8 +434,7 @@ static gboolean plugin_load(PurplePlugin *plugin){
 	return TRUE;
 }
 
-static gboolean plugin_unload(PurplePlugin * plugin)
-{
+gboolean plugin_unload(PurplePlugin * plugin){
 	void *conv_handle = purple_conversations_get_handle(); 
 	purple_signal_disconnect(conv_handle, 
             "sending-im-msg", plugin, 
@@ -456,7 +455,7 @@ static gboolean plugin_unload(PurplePlugin * plugin)
 	return TRUE;
 }
 
-static PurplePluginInfo info = {
+PurplePluginInfo info = {
 	PURPLE_PLUGIN_MAGIC,
 	PURPLE_MAJOR_VERSION,
 	PURPLE_MINOR_VERSION,
@@ -467,7 +466,7 @@ static PurplePluginInfo info = {
 	PURPLE_PRIORITY_DEFAULT,                /**< priority       */
 
 	LATEX_PLUGIN_ID,                        /**< id             */
-	"LaTeX",                                /**< name           */
+	"PiFo",                                /**< name           */
 	"1.5",                                  /**< version        */
 	/**  summary        */
 	"To display LaTeX formula into Pidgin conversation.",
@@ -492,7 +491,7 @@ static PurplePluginInfo info = {
 	NULL
 };
 
-static void init_plugin(PurplePlugin *plugin){
+ void init_plugin(PurplePlugin *plugin){
     return;
 } 
 
