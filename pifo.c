@@ -85,16 +85,15 @@ gboolean is_blacklisted(const char *message){
 	return FALSE;
 }
 
-/* TODO tokenize using a DFSM */
 GPtrArray *get_commands(const GString *buffer){
     GPtrArray *commands = g_ptr_array_new();
     GString *command = NULL;
-    int i;
+    int i, stack;
 
     printf("In get commands! Buffer: %s\n", buffer->str);
 
     for (i=0; i<buffer->len; i++){
-        if (buffer->str[i] == '$') {
+        if (buffer->str[i] == '$' && stack == 0) {
             command = g_string_new(NULL);
             i++;
             while (g_ascii_isalnum(buffer->str[i])){
@@ -103,6 +102,8 @@ GPtrArray *get_commands(const GString *buffer){
 
             g_ptr_array_add(commands, command);
         }
+
+        if (buffer->str[i] == ''
     }
 
 #ifdef DEBUG
@@ -198,8 +199,8 @@ GString *replace(const GString *original,
 /* Credit to http://stackoverflow.com/questions/779875/
  * what-is-the-function-to-replace-string-in-c*/
 char *str_replace(const char *orig, const char *rep, const char *with) {
+    const char *ins;    // the next insert point
     char *result; // the return string
-    char *ins;    // the next insert point
     char *tmp;    // varies
     int len_rep;  // length of rep
     int len_with; // length of with

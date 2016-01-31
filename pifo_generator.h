@@ -3,17 +3,26 @@
 
 #include "pifo.h"
 
+struct mapping {
+    const char *command;
+    gboolean (*handler)(const GString *string, 
+            const GString *command,
+            void **returnval);
+};
+
 gboolean setup_files(GString **tex, 
        GString **dvi, GString **png,
        GString **aux, GString **log);
 
 gboolean generate_latex_listing(const GString *listing, 
-       const GString *language, GString **filename);
+        const GString *language, GString **filename);
 
 gboolean generate_graphviz_png(const GString *dotcode,
-       GString **filename);
+        const GString *command,
+        GString **filename);
 
 gboolean generate_latex_formula(const GString *formula, 
+        const GString *command,
         GString **filename_png);
 
 gboolean render_latex(const GString *pngfilepath, 
@@ -24,16 +33,16 @@ GString *dispatch_command(const GString *command, const GString *snippet);
 GString *fgcolor_as_string(void);
 GString *bgcolor_as_string(void);
 
-#define LATEX_MATH_TEMPLATE(FORMULA,FCOLOR,BCOLOR) \
+#define LATEX_MATH_TEMPLATE \
     "\\documentclass[12pt]{article}\\usepackage{color}"  \
     "\\usepackage[dvips]{graphicx}\\usepackage{amsmath}" \
     "\\usepackage{amssymb}\\usepackage[utf8]{inputenc}"  \
     "\\pagestyle{empty}" \
-    "\\definecolor{fgcolor}{RGB}" "{" #FCOLOR "}" \
-    "\\definecolor{bgcolor}{RGB}" "{" #BCOLOR "}" \
+    "\\definecolor{fgcolor}{RGB}" "{%s}" \
+    "\\definecolor{bgcolor}{RGB}" "{%s}" \
     "\\begin{document}\\pagecolor{bgcolor}\\color{fgcolor}" \
     "\\begin{gather*}" \
-        #FORMULA \
+        "%s" \
     "\\end{gather*}" \
     "\\end{document}"
 
@@ -66,6 +75,5 @@ GString *bgcolor_as_string(void);
         "%s" \
     "\n\\end{lstlisting}" \
     "\\end{document}"
-
 
 #endif

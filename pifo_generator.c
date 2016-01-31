@@ -8,20 +8,53 @@
 
 extern PurplePlugin *me;
 
-static const char *graphviz_command = "dot";
-static const char *formula_command = "formula";
-static const char *allowed_languages[] = {
-    "ada", "haskell",
-    "bash", "awk",
-    "c", "cplusplus",
-    "html", "java",
-    "lisp", "lua",
-    "make", "octave",
-    "perl", "python",
-    "ruby", "vhdl",
-    "verilog", "xml",
-    "latex"
+/* Commandstring -> Function mapping */
+static const struct mapping commandmap[] = {
+    /* source highlighting commands */
+    {"ada", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"haskell", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"bash", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"awk", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"c", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"cpluscplus", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"html", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"lua", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"make", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"octave", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"perl", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"python", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"ruby", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"vhdl", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"verilo", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"xml", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+    {"latex", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_listing},
+
+    /* graphviz command */
+    {"dot", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_graphviz_png},
+
+    /* formula typesetting */
+    {"formula", (gboolean (*)(const GString *c, const GString *s, void **r)) 
+        generate_latex_formula},
 };
+
 
 GString *fgcolor_as_string(void){
     GString *result = g_string_new(NULL);
@@ -63,12 +96,13 @@ GString *dispatch_command(const GString *command, const GString *snippet){
     GString *result;
     int i;
 
-    for (i=0; i<sizeof(allowed_languages)/sizeof(const char *); i++){
-        if (!strcmp(command->str, allowed_languages[i])){
+    for (i=0; i<sizeof(commandmap)/sizeof(struct mapping); i++){
+        if (!strcmp(command->str, commandmap[i].command)){
             purple_debug_info("LaTeX", 
-                    "Running generate_latex_listing backend!\n");
-            if (generate_latex_listing(snippet, 
-                        g_string_new(allowed_languages[i]), &result)){
+                    "Running backend for [%s]\n",
+                    command->str);
+
+            if (commandmap[i].handler(snippet, command, (void **) &result)){
                 return result;
             } else {
                 return NULL;
@@ -76,27 +110,8 @@ GString *dispatch_command(const GString *command, const GString *snippet){
         } 
     }
 
-    if (!strcmp(command->str, graphviz_command)){
-        purple_debug_info("LaTeX", 
-                "Running generate_graphviz_png backend!\n");
-        if (generate_graphviz_png(snippet, &result))
-            return result;
-        else 
-            return NULL;
-    }
-
-    if (!strcmp(command->str, formula_command)){
-        purple_debug_info("LaTeX", 
-                "Running generate_latex_formula backend!\n");
-        if (generate_latex_formula(snippet, &result))
-            return result;
-        else
-            return NULL;
-    }
-
     return NULL;
 }
-
 
 gboolean generate_latex_listing(const GString *listing, 
         const GString *language, GString **filename){
@@ -175,9 +190,9 @@ out:
     return returnval;
 }
 
-
 /* Currently not implemented */
-gboolean generate_graphviz_png(const GString *dotcode,
+gboolean generate_graphviz_png(const GString *command, 
+        const GString *dotcode,
         GString **filename){
     *filename = NULL;
     return FALSE;
@@ -251,6 +266,7 @@ gboolean render_latex(const GString *pngfilepath,
 }
 
 gboolean generate_latex_formula(const GString *formula, 
+        const GString *command,
         GString **filename_png){
     FILE *transcript_file;
     gboolean returnval = TRUE;
@@ -278,8 +294,8 @@ gboolean generate_latex_formula(const GString *formula,
     }
 
     /* Generate latex template file */
-	fprintf(transcript_file, LATEX_MATH_TEMPLATE(%s,%s,%s), 
-            formula->str, fgcolor->str, bgcolor->str);
+	fprintf(transcript_file, LATEX_MATH_TEMPLATE, 
+            fgcolor->str, bgcolor->str, formula->str);
 	fclose(transcript_file);
 
 
@@ -295,7 +311,7 @@ gboolean generate_latex_formula(const GString *formula,
     goto out;
 
 out:
-    unlink(texfilepath->str);
+//    unlink(texfilepath->str);
     unlink(dvifilepath->str);
     unlink(auxfilepath->str);
     unlink(logfilepath->str);
