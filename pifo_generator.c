@@ -311,7 +311,7 @@ gboolean generate_latex_formula(const GString *formula,
     goto out;
 
 out:
-//    unlink(texfilepath->str);
+    unlink(texfilepath->str);
     unlink(dvifilepath->str);
     unlink(auxfilepath->str);
     unlink(logfilepath->str);

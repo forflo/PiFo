@@ -88,12 +88,12 @@ gboolean is_blacklisted(const char *message){
 GPtrArray *get_commands(const GString *buffer){
     GPtrArray *commands = g_ptr_array_new();
     GString *command = NULL;
-    int i, stack;
+    int i, stack = 0;
 
     printf("In get commands! Buffer: %s\n", buffer->str);
 
     for (i=0; i<buffer->len; i++){
-        if (buffer->str[i] == '$' && stack == 0) {
+        if (buffer->str[i] == INTROC && stack == 0) {
             command = g_string_new(NULL);
             i++;
             while (g_ascii_isalnum(buffer->str[i])){
@@ -103,7 +103,13 @@ GPtrArray *get_commands(const GString *buffer){
             g_ptr_array_add(commands, command);
         }
 
-        if (buffer->str[i] == ''
+        if (buffer->str[i] == '{'){
+            stack++;
+        }
+
+        if (buffer->str[i] == '}' && stack > 0){
+            stack--;
+        }
     }
 
 #ifdef DEBUG
@@ -534,16 +540,18 @@ PurplePluginInfo info = {
 
 	LATEX_PLUGIN_ID,                        /**< id             */
 	"PiFo",                                /**< name           */
-	"1.5",                                  /**< version        */
+	"1.0",                                  /**< version        */
 	/**  summary        */
-	"To display LaTeX formula into Pidgin conversation.",
+	"To display various rendered markup codes into Pidgin conversation.",
 	/**  description    */
-	"Put LaTeX-code between $$ ... $$ markup to have it displayed as " 
+	"Put Markup-code between \\markupcmd{...} to have it displayed as " 
     "Picture in your conversation.\nRemember that your contact needs "
-    "an similar plugin or else he will just see the pure LaTeX-code\nYou "
-    "must have LaTeX and dvipng installed (in your PATH)",
-	"Benjamin Moll <qjuh@users.sourceforge.net>\nNicolas Schoonbroodt "
-    "<nicolas@ffsa.be>\nNicolai Stange <nic-stange@t-online.de>", /**< author       */
+    "an similar plugin or else he will just see the pure Markup-code\nYou "
+    "must have LaTeX, Graphviz and dvipng installed (in your PATH)",
+	"Florian Mayer <mayer.florian@web.de> (complete rewrite)\n"
+	"Benjamin Moll <qjuh@users.sourceforge.net>, Nicolas Schoonbroodt\n"
+    "<nicolas@ffsa.be> and Nicolai Stange <nic-stange@t-online.de>\n" 
+    "provided the valuable base sources (legacy pidgin-latex)", /**< author       */
 	WEBSITE,                                /**< homepage       */
 	plugin_load,                            /**< load           */
 	plugin_unload,                          /**< unload         */

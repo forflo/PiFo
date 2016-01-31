@@ -55,13 +55,14 @@
 #include <libpurple/version.h>
 #include <pidgin/gtksmiley.h>
 
-#define INTRO "$"
+#define INTRO "\\"
+#define INTROC '\\'
 #define IMG_BEG "<img id=\""
 #define IMG_END "\">"
 #define BEG "[tex]"
 #define END "[/tex]"
-#define LATEX_PLUGIN_ID "qjuh-LaTeX"
-#define WEBSITE "http://sourceforge.net/projects/pidgin-latex/"
+#define LATEX_PLUGIN_ID "qjuh-PiFo"
+#define WEBSITE "https://github.com/forflo/pidgin-latex"
 #define FILTER_AND "&amp;"
 #define FILTER_LT "&lt;"
 #define FILTER_GT "&gt;"
