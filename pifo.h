@@ -76,8 +76,8 @@
  gboolean is_blacklisted(const char *message);
  void open_log(PurpleConversation *conv);
  gboolean contains_work(const char *message);
- GPtrArray *get_commands(const GString *buffer);
- GPtrArray *get_snippets(const GString *buffer);
+ gboolean get_commands(const GString *buffer, 
+         GPtrArray **cmds, GPtrArray **args);
  GString *replace(const GString *original, 
         const GString *command, const GString *snippet, int id);
  int load_image(const GString *resulting_png);

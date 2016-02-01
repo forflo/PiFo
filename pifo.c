@@ -87,91 +87,111 @@ gboolean is_blacklisted(const char *message){
 
 #define IS_NOT_ASCII(x) () 
 
-GPtrArray *get_commands(const GString *buffer){
+gboolean get_commands(const GString *buffer, 
+        GPtrArray **cmds, GPtrArray **args){
     GPtrArray *commands = g_ptr_array_new();
-    GString *command = NULL;
-    int i, stack = 0;
+    GPtrArray *arguments = g_ptr_array_new();
 
-    printf("In get commands! Buffer: %s\n", buffer->str);
+    GString *cmd;
+    GString *arg;
 
-    for (i=0; i<buffer->len; i++){
-        if (buffer->str[i] == INTROC && stack == 0) {
-            command = g_string_new(NULL);
-            i++;
-            while (buffer->str[i] != '{'){
-                g_string_append_c(command, buffer->str[i++]);
-            }
+    enum state {
+        NORMAL, BACKSLASH, CMDNAME, ARGOPEN, TERM
+    };
 
-            g_ptr_array_add(commands, command);
-        }
-
-        if (buffer->str[i] == '{'){
-            stack++;
-        }
-
-        if (buffer->str[i] == '}' && stack > 0){
-            stack--;
-        }
-    }
-
-#ifdef DEBUG
-    for (i=0; i<commands->len; i++){
-        command = g_ptr_array_index(commands, i);
-
-        printf("Salvaged command #%i = [%s]\n", i, command->str);
-    }
-#endif
-
-    return commands;
-}
-
-GPtrArray *get_snippets(const GString *buffer){
-    GPtrArray *snippets = g_ptr_array_new();
-    GString *snippet = NULL;
     int i;
     int stackcnt = 0;
     char current;
+    enum state state = NORMAL;
 
-    for (i=0; i<buffer->len; i++){
+    /* implementation as (ugly) state machine.
+     * We explicitly want to read the terminating
+     * character. I find this more intuitive... */
+    for (i=0; i<buffer->len + 1; i++){
         current = buffer->str[i];
-
-        if (current == '{' && stackcnt == 0){
-            snippet = g_string_new(NULL);
-            stackcnt++;
-            g_string_append_c(snippet, current);
-            continue;
-        }
-
-        if (stackcnt > 0) {
-            g_string_append_c(snippet, current);
-
-            if (current == '{'){
-                stackcnt++;
-            }
-
-            if (current == '}'){
-                stackcnt--;
-                if (stackcnt == 0){
-                    /* cut off { and } */
-                    g_string_truncate(snippet,snippet->len - 1);
-                    g_string_erase(snippet,0,1);
-                    g_ptr_array_add(snippets, snippet);
+        switch (state){
+            case NORMAL:
+                if (current == '\\'){
+                    state = BACKSLASH;
+                    cmd = g_string_new(NULL);
                 }
-            }
+                break;
+            case BACKSLASH:
+                if (current == '\\'){
+                    state == BACKSLASH;
+                } else if (g_ascii_isalnum(current)){
+                    state = CMDNAME;
+                    g_string_append_c(cmd, current);
+                } else {
+                    state = NORMAL;
+                    g_string_free(cmd, TRUE);
+                }
+                break;
+            case CMDNAME:
+                if (current == '\\'){
+                    state = BACKSLASH;
+                    g_string_free(cmd, TRUE);
+                    cmd = g_string_new(NULL);
+                } else if (g_ascii_isalnum(current)){
+                    state = CMDNAME;
+                    g_string_append_c(cmd, current);
+                } else if (current == '{'){
+                    stackcnt++;
+                    state = ARGOPEN;
+                    arg = g_string_new(NULL);
+                } else {
+                    state = NORMAL;
+                    g_string_free(cmd, TRUE);
+                }
+                break;
+            case ARGOPEN:
+                if (current == '\0'){
+                    g_string_free(cmd, TRUE);
+                    g_string_free(arg, TRUE);
+                    state = TERM;
+                } else {
+                    if (current == '{'){
+                        g_string_append_c(arg, current);
+                        stackcnt++;
+                    } else if (current == '}'){
+                        stackcnt--;
+
+                        if (stackcnt == 0){
+                            g_ptr_array_add(commands, cmd);
+                            g_ptr_array_add(arguments, arg);
+
+                            state = NORMAL;
+                        } else {
+                            g_string_append_c(arg, current);
+                        }
+                    } else {
+                        g_string_append_c(arg, current);
+                    }
+                }
+                break;
+            default:
+                break;
         }
     }
 
-#ifdef DEBUG
-    for (i=0; i<snippets->len; i++){
-        snippet = g_ptr_array_index(snippets, i);
+    *cmds = commands;
+    *args = arguments;
 
-        printf("Salvaged snippet #%i = [%s]\n", i, snippet->str);
+#ifdef DEBUG
+    for (i=0; i<commands->len; i++){
+        cmd = g_ptr_array_index(commands, i);
+
+        printf("Salvaged command #%i = [%s]\n", i, cmd->str);
+    }
+
+    for (i=0; i<arguments->len; i++){
+        arg = g_ptr_array_index(arguments, i);
+
+        printf("Salvaged snippet #%i = [%s]\n", i, arg->str);
     }
 #endif
 
-
-
-    return snippets;
+    return TRUE;
 }
 
 GString *replace(const GString *original, 
@@ -316,13 +336,10 @@ GString *modify_message(const GString *message){
     GString *old = g_string_new(message->str);
     GString *new;
 
-    GPtrArray *snippets = get_snippets(message);
-    GPtrArray *commands = get_commands(message);
-
-    if (snippets->len != commands->len){
-		purple_notify_error(me, "LaTeX", 
-                "Error while analysing the message!", 
-                "Different amounts of snippets and commands!");
+    GPtrArray *snippets, *commands;
+    if (get_commands(message, &commands, &snippets) == FALSE){
+        purple_debug_info("PiFo",
+                "Could not gather commands!\n");
         return NULL;
     }
 
@@ -376,23 +393,23 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
         const char *nom, const char *message, 
         PurpleMessageFlags messFlag, const char *original){
 
-	gboolean logflag = purple_conversation_is_logging(conv);
-
-	if (logflag) {
-		GList *log;
-
-		if (conv->logs == NULL)
-			open_log(conv);
-
-		log = conv->logs;
-		while (log != NULL) {
-			purple_log_write((PurpleLog*)log->data, 
-                    messFlag, nom, time(NULL), original);
-			log = log->next;
-		}
-
-		purple_conversation_set_logging(conv, FALSE);
-	}
+//	gboolean logflag = purple_conversation_is_logging(conv);
+//
+//	if (logflag) {
+//		GList *log;
+//
+//		if (conv->logs == NULL)
+//			open_log(conv);
+//
+//		log = conv->logs;
+//		while (log != NULL) {
+//			purple_log_write((PurpleLog*)log->data, 
+//                    messFlag, nom, time(NULL), original);
+//			log = log->next;
+//		}
+//
+//		purple_conversation_set_logging(conv, FALSE);
+//	}
 
 	if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_CHAT){
 		purple_conv_chat_write(PURPLE_CONV_CHAT(conv), 
@@ -402,9 +419,9 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
                 nom, message, messFlag, time(NULL));
     }
 
-	if (logflag){
-		purple_conversation_set_logging(conv, TRUE);
-    }
+//	if (logflag){
+//		purple_conversation_set_logging(conv, TRUE);
+//    }
 
 	return TRUE;
 }
@@ -434,7 +451,8 @@ gboolean message_receive(PurpleAccount *account,
     g_free(unescaped);
 
 	purple_debug_info("LaTeX", 
-            "[message_receive()] Writing Message: %s\n", *buffer);
+            "Received message: [%s]\n", 
+            *buffer);
 
 	if (!contains_work(*buffer)){
         g_string_free(wrapper, TRUE);
@@ -443,24 +461,27 @@ gboolean message_receive(PurpleAccount *account,
 
 	if (is_blacklisted(*buffer)) {
 		purple_debug_info("LaTeX", 
-                "Message not analysed, because it contained blacklisted code.\n");
+                "Message not analysed, because it "
+                "contained blacklisted code.\n");
         g_string_free(wrapper, TRUE);
 		return FALSE;
 	}
 
-
-	purple_debug_info("LaTeX", 
-            "[message_receive()] Analyse: %s\n", *buffer);
-
     modified = modify_message(wrapper);
     if (modified == NULL){
-        purple_debug_info("LaTeX", 
-                "Message could not be modified: %s",
-                "modify_message()");
+        purple_debug_info("PiFo", 
+                "Message could not be modified: [%s]\n", 
+                *buffer);
+        pidgin_latex_write(conv, who, wrapper->str, flags, *buffer);
         return FALSE;
     }
 
+    purple_debug_info("PiFo",
+            "Modified message: [%s]\n",
+            modified->str);
+
 	pidgin_latex_write(conv, who, modified->str, flags, *buffer);
+
 
     g_string_free(modified, TRUE);
     g_string_free(wrapper, TRUE);
@@ -479,8 +500,9 @@ void message_send(PurpleConversation *conv, const char **buffer){
     printf("Message_send!\n");
 #endif
 
-	purple_debug_info("LaTeX", 
-            "[message_send()] Sending Message: %s\n", *buffer);
+	purple_debug_info("PiFo", 
+            "Sending Message: [%s]\n", 
+            *buffer);
 
 	if (!contains_work(*buffer)){
 		return;
@@ -492,7 +514,14 @@ void message_send(PurpleConversation *conv, const char **buffer){
 		return;
 	}
 
-    modified = modify_message(wrapper);
+    if ((modified = modify_message(wrapper)) == NULL){
+         purple_debug_info("PiFo",
+                 "Message could not be modified: [%s]\n",
+                 *buffer);
+         g_string_free(wrapper, TRUE);
+         return;
+    }
+
     *buffer = g_string_free(modified, FALSE);
     g_string_free(wrapper, TRUE);
 

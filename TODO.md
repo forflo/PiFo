@@ -10,3 +10,6 @@
 * Add Screencast - Done
 * Add a Backend-Howto
 * Add graphviz backend
+* Make error messages for unbalanced 
+    command, snippet pairs silent!
+
