@@ -13,7 +13,6 @@ You can
 
 # Demo
 
-Let's jump right in!
 [![Pifos first Screencast](http://img.youtube.com/vi/W0NIbWjxUsI/0.jpg)](http://www.youtube.com/watch?v=W0NIbWjxUsI)
 
 # Requirements
