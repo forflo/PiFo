@@ -65,6 +65,34 @@ or use this one for highlighting haskell sources
         _ `shaves` _ = False
     }
 
+# Complete command list
+
+Hiere is a list of all commands that will be recognized
+
+* \ada{}
+* \haskell{}
+* \bash{}
+* \awk{}
+* \c{}
+* \cpluscplus{}
+* \html{}
+* \lua{}
+* \make{}
+* \octave{}
+* \perl{}
+* \python{}
+* \ruby{}
+* \vhdl{}
+* \verilog{}
+* \xml{}
+* \dot{}
+* \formula{}
+
+\ada{} to \xml{} hightlights source code.
+\dot{} renders arbitrary graphiz dot code
+and \formula{} can be used to display common
+LateX math markup.
+
 # BUILDING and INSTALLATION
 To build and install :
 
