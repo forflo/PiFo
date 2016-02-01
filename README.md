@@ -13,6 +13,9 @@ You can
 
 # Demo
 
+Let's jump right in!
+![Demo](screencast/screencast.webm)
+
 # Requirements
 	- The pidgin header files (needed to compile the plugin)
 	- A LaTex-Distribution
