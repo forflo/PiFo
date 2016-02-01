@@ -146,10 +146,6 @@ gboolean generate_latex_listing(const GString *listing,
             "Using [%s] as foreground and [%s] as background\n",
             fgcolor->str, bgcolor->str);
 
-    /* temporary cut off { and } */
-    listing_temp[listing->len - 1] = '\0';
-    listing_temp++;
-
 #ifdef DEBUG
 	printf("transcript_file: " LATEX_LST_TEMPLATE "\n", 
             fgcolor->str, bgcolor->str, 
@@ -162,9 +158,6 @@ gboolean generate_latex_listing(const GString *listing,
             "none", "5", "none", language->str, 
             listing_temp);
 	fclose(transcript_file);
-
-    listing_temp--;
-    listing_temp[listing->len - 1] = '}';
 
     if (render_latex(pngfilepath, texfilepath, dvifilepath) == TRUE){
         *filename = pngfilepath;
@@ -190,12 +183,64 @@ out:
     return returnval;
 }
 
-/* Currently not implemented */
-gboolean generate_graphviz_png(const GString *command, 
-        const GString *dotcode,
+gboolean generate_graphviz_png(const GString *dotcode, 
+        const GString *command,
         GString **filename){
     *filename = NULL;
-    return FALSE;
+
+    FILE *dotfile;
+    gboolean returnval = TRUE;
+    gboolean exec;
+    GString *tmpfile = get_unique_tmppath();
+    GString *pngfile = g_string_new(tmpfile->str);
+    g_string_append(pngfile, ".png");
+
+    if (!chtempdir(tmpfile)){
+        returnval = FALSE;
+        goto out;
+    } 
+
+    if (!(dotfile = fopen(tmpfile->str, "w"))){
+        purple_notify_error(me, "PiFo",
+                "Error while trying to render graphviz file",
+                "Error opening file!");
+
+        return FALSE;
+    }
+
+    fprintf(dotfile, "%s", dotcode->str);
+    fclose(dotfile);
+
+    char * const dotopts[] = {
+        "dot", "-O", 
+        "-T", "png", 
+        tmpfile->str, NULL
+    };
+
+#ifdef DEBUG
+    printf("generate_graphivz_png(): tmpfile: [%s]\npngfile: [%s]\n",
+            tmpfile->str, pngfile->str);
+#endif
+
+    exec = execute("dot", dotopts);
+
+    if (exec != 0){
+        purple_debug_info("PiFo",
+                "Could not render dot code!\n");
+        *filename = NULL;
+        returnval = FALSE;
+        goto out;
+    }
+
+    *filename = pngfile;
+    returnval = TRUE;
+    goto out;
+
+out: 
+    //unlink(tmpfile->str);
+    //g_string_free(tmpfile, TRUE);
+
+    return returnval;
 }
 
 gboolean setup_files(GString **tex, 
@@ -230,6 +275,8 @@ gboolean chtempdir(const GString *path){
         free(dirname_temp);
         return FALSE;
     }
+
+    free(dirname_temp);
 
     return TRUE;
 }

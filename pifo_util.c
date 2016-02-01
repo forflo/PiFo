@@ -21,7 +21,7 @@ GString *get_unique_tmppath(void){
 }
 
 /* Helper function for command execution */
- int execute(const char *prog, char * const cmd[]){
+int execute(const char *prog, char * const cmd[]){
 	int i = 0;
 	int exitcode = -1, exitstatus;
 	pid_t child_id = 0;

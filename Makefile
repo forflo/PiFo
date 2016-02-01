@@ -48,13 +48,17 @@ install: all
 	cp $(PIDGIN_LATEX).so $(LIB_INSTALL_DIR)
 
 $(PIDGIN_LATEX).so: $(PIDGIN_LATEX).o
-	$(CC) $(LDFLAGS) -shared $(CFLAGS) pifo.o pifo_util.o pifo_generator.o -o $(PIDGIN_LATEX).so \
-		$(PIDGIN_LIBS) $(GTK_LIBS) -Wl,--export-dynamic -Wl,-soname
+	$(CC) $(LDFLAGS) -shared $(CFLAGS) pifo.o pifo_util.o pifo_generator.o \
+		-o $(PIDGIN_LATEX).so $(PIDGIN_LIBS) $(GTK_LIBS) -Wl,--export-dynamic \
+		-Wl,-soname
 
 $(PIDGIN_LATEX).o:$(SRC) $(HEA)
-		$(CC) $(CFLAGS) -fPIC -c pifo.c -o pifo.o $(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
-		$(CC) $(CFLAGS) -fPIC -c pifo_util.c -o pifo_util.o $(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
-		$(CC) $(CFLAGS) -fPIC -c pifo_generator.c -o pifo_generator.o $(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
+		$(CC) $(CFLAGS) -fPIC -c pifo.c -o pifo.o \
+			$(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
+		$(CC) $(CFLAGS) -fPIC -c pifo_util.c -o pifo_util.o \
+			$(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
+		$(CC) $(CFLAGS) -fPIC -c pifo_generator.c -o pifo_generator.o \
+			$(PIDGIN_CFLAGS) $(GTK_CFLAGS) -DHAVE_CONFIG_H
 
 clean:
 	rm -rf *.o *.c~ *.h~ *.so *.la .libs

@@ -149,8 +149,12 @@ GPtrArray *get_snippets(const GString *buffer){
 
             if (current == '}'){
                 stackcnt--;
-                if (stackcnt == 0)
+                if (stackcnt == 0){
+                    /* cut off { and } */
+                    g_string_truncate(snippet,snippet->len - 1);
+                    g_string_erase(snippet,0,1);
                     g_ptr_array_add(snippets, snippet);
+                }
             }
         }
     }
@@ -162,6 +166,8 @@ GPtrArray *get_snippets(const GString *buffer){
         printf("Salvaged snippet #%i = [%s]\n", i, snippet->str);
     }
 #endif
+
+
 
     return snippets;
 }
@@ -176,7 +182,9 @@ GString *replace(const GString *original,
     GString *result;
 
     g_string_append(to_replace, command->str);
+    g_string_append(to_replace, "{");
     g_string_append(to_replace, snippet->str);
+    g_string_append(to_replace, "}");
 
 	sprintf(idbuffer, "%d\0", id);
     g_string_append(replacer, idbuffer);
