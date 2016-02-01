@@ -13,7 +13,12 @@ You can
 
 # Demo
 
+Right now, there are two demos. The first
+demo shows formula rendering and code highlighting.
+The second shows the newest feature: Embedded graphvzi rendering :)
+
 [![Pifos first Screencast](http://img.youtube.com/vi/W0NIbWjxUsI/0.jpg)](http://www.youtube.com/watch?v=W0NIbWjxUsI)
+[![Pifos second Screencast](http://img.youtube.com/vi/dNmzUOX3aBk/0.jpg)](http://www.youtube.com/watch?v=dNmzUOX3aBk)
 
 # Requirements
 	- The pidgin header files (needed to compile the plugin)
