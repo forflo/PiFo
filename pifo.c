@@ -85,8 +85,6 @@ gboolean is_blacklisted(const char *message){
 	return FALSE;
 }
 
-#define IS_NOT_ASCII(x) () 
-
 gboolean get_commands(const GString *buffer, 
         GPtrArray **cmds, GPtrArray **args){
     GPtrArray *commands = g_ptr_array_new();
@@ -104,7 +102,7 @@ gboolean get_commands(const GString *buffer,
     char current;
     enum state state = NORMAL;
 
-    /* implementation as (ugly) state machine.
+    /* Implementation of command scanner as DFSM.
      * We explicitly want to read the terminating
      * character. I find this more intuitive... */
     for (i=0; i<buffer->len + 1; i++){
@@ -174,9 +172,6 @@ gboolean get_commands(const GString *buffer,
         }
     }
 
-    *cmds = commands;
-    *args = arguments;
-
 #ifdef DEBUG
     for (i=0; i<commands->len; i++){
         cmd = g_ptr_array_index(commands, i);
@@ -191,7 +186,55 @@ gboolean get_commands(const GString *buffer,
     }
 #endif
 
-    return TRUE;
+    if (commands->len > 0){
+        *cmds = commands;
+        *args = arguments;
+
+        return TRUE;
+    } else {
+        g_ptr_array_free(commands, TRUE);
+        g_ptr_array_free(arguments, TRUE);
+        *cmds = NULL;
+        *args = NULL;
+        return FALSE;
+    }
+}
+
+
+GString *replace_error(const GString *original, 
+        const GString *command, 
+        const GString *snippet, 
+        const char * message){
+
+    GString *replacer = g_string_new(message);
+
+    GString *to_replace = g_string_new(INTRO);
+    char *new_msg;
+    GString *result;
+
+    g_string_append(to_replace, command->str);
+    g_string_append(to_replace, "{");
+    g_string_append(to_replace, snippet->str);
+    g_string_append(to_replace, "}");
+
+#ifdef DEBUG
+    printf("replace_error: %s with %s\n", 
+            to_replace->str, replacer->str);
+#endif
+
+    new_msg = str_replace(original->str, to_replace->str, replacer->str);
+
+    g_string_free(replacer, TRUE);
+    g_string_free(to_replace, TRUE);
+
+    result = g_string_new(new_msg);
+    free(new_msg);
+
+#ifdef DEBUG
+    printf("result: %s\n", result->str);
+#endif 
+
+    return result;
 }
 
 GString *replace(const GString *original, 
@@ -339,7 +382,8 @@ GString *modify_message(const GString *message){
     GPtrArray *snippets, *commands;
     if (get_commands(message, &commands, &snippets) == FALSE){
         purple_debug_info("PiFo",
-                "Could not gather commands!\n");
+                "No commands in there! "
+                "Message not changed!\n");
         return NULL;
     }
 
@@ -349,33 +393,42 @@ GString *modify_message(const GString *message){
 
         picpath = dispatch_command(command, snippet);
         if (picpath == NULL){
-            purple_debug_info("LaTeX", 
+            purple_debug_info("PiFo", 
                     "Could not dispatch command: [%s(%s,%s)]\n",
-                    "dispatch_command", command->str, snippet->str);
-            return NULL;
+                    "Command not found: ", command->str, snippet->str);
+            
+            GString *error_msg = g_string_new(NULL);
+            g_string_append_printf(error_msg, 
+                    "{PiFo: [%s] is not a valid command!}",
+                    command->str);
+            new = replace_error(old, command, snippet, error_msg->str);
+
+            g_string_free(error_msg, TRUE);
+            g_string_free(old, TRUE);
+            old = new;
+        } else {
+            image_id = load_image(picpath);
+    
+            if(image_id == -1){
+                return NULL;  
+            }
+    
+            new = replace(old, command, snippet, image_id);
+    
+            unlink(picpath->str);
+            g_string_free(old, TRUE);
+            g_string_free(picpath, TRUE);
+    
+            old = new;
         }
-
-        image_id = load_image(picpath);
-
-        if(image_id == -1){
-            return NULL;  
-        }
-
-        new = replace(old, command, snippet, image_id);
-
-        unlink(picpath->str);
-        g_string_free(old, TRUE);
-        g_string_free(picpath, TRUE);
-
-        old = new;
     }
 
-    purple_debug_info("LaTeX",
+    purple_debug_info("PiFo",
             "Changed message from [%s] to [%s]\n",
             message->str, new->str);
 
 #ifdef DEBUG
-    printf("LaTeX",
+    printf("PiFo",
             "Changed message from [%s] to [%s]\n",
             message->str, new->str);
 #endif 
@@ -444,13 +497,13 @@ gboolean message_receive(PurpleAccount *account,
     gchar *unescaped = purple_unescape_html(*buffer);
 
 #ifdef DEBUG
-    printf("Message_received!\n");
+    printf("Message_received! [%s]\n", *buffer);
 #endif
     GString *wrapper = g_string_new(unescaped);
     GString *modified;
     g_free(unescaped);
 
-	purple_debug_info("LaTeX", 
+	purple_debug_info("PiFo", 
             "Received message: [%s]\n", 
             *buffer);
 
@@ -460,7 +513,7 @@ gboolean message_receive(PurpleAccount *account,
 	}
 
 	if (is_blacklisted(*buffer)) {
-		purple_debug_info("LaTeX", 
+		purple_debug_info("PiFo", 
                 "Message not analysed, because it "
                 "contained blacklisted code.\n");
         g_string_free(wrapper, TRUE);
@@ -472,7 +525,6 @@ gboolean message_receive(PurpleAccount *account,
         purple_debug_info("PiFo", 
                 "Message could not be modified: [%s]\n", 
                 *buffer);
-        pidgin_latex_write(conv, who, wrapper->str, flags, *buffer);
         return FALSE;
     }
 
@@ -490,44 +542,8 @@ gboolean message_receive(PurpleAccount *account,
 }
 
 void message_send(PurpleConversation *conv, const char **buffer){
-    gchar *unescaped = purple_unescape_html(*buffer);
-    GString *wrapper = g_string_new(unescaped);
-	GString *modified;
-	gboolean smileys;
-    g_free(unescaped);
-
-#ifdef DEBUG
-    printf("Message_send!\n");
-#endif
-
-	purple_debug_info("PiFo", 
-            "Sending Message: [%s]\n", 
-            *buffer);
-
-	if (!contains_work(*buffer)){
-		return;
-	}
-
-	if (is_blacklisted(*buffer)) {
-		purple_debug_info("LaTeX", 
-                "Message not analysed, because it contained blacklisted code.\n");
-		return;
-	}
-
-    if ((modified = modify_message(wrapper)) == NULL){
-         purple_debug_info("PiFo",
-                 "Message could not be modified: [%s]\n",
-                 *buffer);
-         g_string_free(wrapper, TRUE);
-         return;
-    }
-
-    *buffer = g_string_free(modified, FALSE);
-    g_string_free(wrapper, TRUE);
-
     return;
 }
-
 
 gboolean plugin_load(PurplePlugin *plugin){
 	void *conv_handle = purple_conversations_get_handle();
