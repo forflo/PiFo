@@ -85,6 +85,8 @@ gboolean is_blacklisted(const char *message){
 	return FALSE;
 }
 
+#define IS_NOT_ASCII(x) () 
+
 GPtrArray *get_commands(const GString *buffer){
     GPtrArray *commands = g_ptr_array_new();
     GString *command = NULL;
@@ -96,7 +98,7 @@ GPtrArray *get_commands(const GString *buffer){
         if (buffer->str[i] == INTROC && stack == 0) {
             command = g_string_new(NULL);
             i++;
-            while (g_ascii_isalnum(buffer->str[i])){
+            while (buffer->str[i] != '{'){
                 g_string_append_c(command, buffer->str[i++]);
             }
 
