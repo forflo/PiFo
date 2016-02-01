@@ -93,7 +93,25 @@ Hiere is a list of all commands that will be recognized
 and \formula{} can be used to display common
 LateX math markup.
 
-# BUILDING and INSTALLATION
+# Important notes
+
+This plugin uses various command line utilities and
+calls them in background in order to render the
+available markups depicted in chapter `command list`.
+Some markup languages like TeX are turing-complete,
+Which means, that it is, in general, not possible
+to decide which code-strings are malicious or not.
+
+Actually, the commandline tools should only be called
+in a proper sandbox. This, however would requre a bit
+more work and I simply don't have the time right now and
+don't know exactly how to do that at this point of time.
+Patches are thus very welcome!
+
+Please, only activate the plugin if you know _all_
+your contacts.
+
+# Building and installation
 To build and install :
 
 You can compile the plugin using
