@@ -85,6 +85,20 @@ gboolean is_blacklisted(const char *message){
 	return FALSE;
 }
 
+/*
+ * Here is the FSM as dot
+   digraph fsm {
+       NORMAL -> BACKSLASH [label="\\"];
+       BACKSLASH -> NORMAL [label="[^(::alnum::|\\)]"];
+       BACKSLASH -> BACKSLASH [label="\\"];
+       BACKSLASH -> COMMAND [label="[::alnum::]"];
+       COMMAND -> BACKSLASH [label="\\"];
+       COMMAND -> NORMAL [label="[^(::alnum::|\\)]"];
+       COMMAND -> COMMAND [label="[::alnum::]"];
+       COMMAND -> ARGUMENT [label="{"];
+       ARGUMENT -> NORMAL [label="}"];
+   }
+ */
 gboolean get_commands(const GString *buffer, 
         GPtrArray **cmds, GPtrArray **args){
     GPtrArray *commands = g_ptr_array_new();
