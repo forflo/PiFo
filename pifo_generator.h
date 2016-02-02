@@ -35,6 +35,13 @@ gboolean generate_markdown(const GString *markdown_text,
 gboolean render_markdown (const GString *markdownfilepath,
                           const GString *texfilepath);
 
+gboolean render_latex_pdf_to_png(const GString *pngfilepath, 
+        const GString *texfilepath, const GString *epsfilepath,
+        const GString *pdffilepath);
+
+gboolean generate_tikz_png(const GString *tikz_code,
+        const GString *command,
+        GString **filename_png);
 
 gboolean chtempdir(const GString *path);
 GString *dispatch_command(const GString *command, const GString *snippet);
@@ -82,6 +89,18 @@ GString *bgcolor_as_string(void);
     "\\begin{lstlisting}\n" \
         "%s" \
     "\n\\end{lstlisting}" \
+    "\\end{document}"
+
+#define LATEX_TIKZ_TEMPLATE \
+    "\\documentclass{article}" \
+    "\\usepackage{color}" \
+    "\\usepackage{tikz}" \
+    "\\usetikzlibrary{babel,scopes,intersections,calc,bending,positioning,quotes,graphs,fadings,decorations,angles,automata,babel,backgrounds,calc,calendar,chains,circuits,er,external,external,external,fadings,fadings,external,fadings,fit,fixedpointarithmetic,fpu,lindenmayersystems,math,matrix,mindmap,folding,patterns,petri,plothandlers,plotmarks,profiler,shadings,shadows,spy,topaths,through,trees,turtle,datavisualization,intersections,curvilinear}" \
+    "\\begin{document}" \
+    "\\pagenumbering{gobble}" \
+    "\\begin{tikzpicture}" \
+    "%s" \
+    "\\end{tikzpicture}" \
     "\\end{document}"
 
 #endif

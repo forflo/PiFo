@@ -57,6 +57,9 @@ static const struct mapping commandmap[] = {
     /* markdown support per pandoc */
     {"markdown", (gboolean (*)(const GString *c, const GString *s, void **r))
      generate_markdown},
+
+    {"tikz", (gboolean (*)(const GString *c, const GString *s, void **r))
+     generate_tikz_png},
 };
 
 
@@ -266,6 +269,9 @@ gboolean setup_files(GString **tex,
     g_string_append(*log, ".log");
     g_string_append(*aux, ".aux");
 
+    //TODO!!
+//    g_string_free(tmpfilepath, TRUE);
+
     return TRUE;
 }
 
@@ -287,9 +293,127 @@ gboolean chtempdir(const GString *path){
     return TRUE;
 }
 
+gboolean render_latex_pdf_to_png(const GString *pngfilepath, 
+        const GString *texfilepath, const GString *epsfilepath,
+        const GString *pdffilepath){
+
+    int exec;
+
+    char * const pdflatex[] = {
+        "pdflatex", "--no-shell-escape",
+        "--interaction=nonstopmode",
+        texfilepath->str, NULL
+    };
+
+    char * const pdftops[] = {
+        "pdftops", "-eps",
+        pdffilepath->str, NULL
+    };
+
+    char * const convert[] = {
+        "convert", "-trim",
+        "-density", "300", 
+        epsfilepath->str, pngfilepath->str, NULL
+    };
+
+    exec = (execute("pdflatex", pdflatex) == 0) &&
+           (execute("pdftops", pdftops) == 0) &&
+           (execute("convert", convert) == 0);
+
+    if (!exec){
+        purple_debug_info("PiFo",
+                "Could not render file [%s]\n",
+                texfilepath->str);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+gboolean generate_tikz_png(const GString *tikz_code,
+        const GString *command,
+        GString **filename_png){
+
+    FILE *tikz_texfile;
+    gboolean returnval = TRUE;
+
+    GString *texfilepath, *pdffilepath, 
+            *auxfilepath, *logfilepath,
+            *epsfilepath, *pngfilepath;
+
+    GString *tmpfilepath;
+    tmpfilepath = get_unique_tmppath();
+
+    epsfilepath = g_string_new(tmpfilepath->str);
+    texfilepath = g_string_new(tmpfilepath->str);
+    pdffilepath = g_string_new(tmpfilepath->str);
+    pngfilepath = g_string_new(tmpfilepath->str);
+    auxfilepath = g_string_new(tmpfilepath->str);
+    logfilepath = g_string_new(tmpfilepath->str);
+
+    g_string_free(tmpfilepath, TRUE);
+
+    g_string_append(epsfilepath, ".eps");
+    g_string_append(texfilepath, ".tex");
+    g_string_append(pdffilepath, ".pdf");
+    g_string_append(pngfilepath, ".png");
+    g_string_append(logfilepath, ".log");
+    g_string_append(auxfilepath, ".aux");
+
+    purple_debug_info("PiFo",
+                      "Using [%s] as latex-tikz file\n",
+                      texfilepath->str);
+
+    if (!chtempdir(texfilepath)){
+        returnval = FALSE;
+        goto out;
+    }
+
+    if (!(tikz_texfile = fopen(texfilepath->str, "w"))){
+        returnval = FALSE;
+        goto out;
+    }
+
+#ifdef DEBUG
+    printf("Transcript_file: " LATEX_TIKZ_TEMPLATE "\n", tikz_code);
+#endif
+
+    /* Generate latex template file */
+    fprintf(tikz_texfile, LATEX_TIKZ_TEMPLATE, tikz_code);
+   fclose(tikz_texfile);
+
+   if (render_latex_pdf_to_png(pngfilepath, 
+               texfilepath, epsfilepath, 
+               pdffilepath) == TRUE){
+       *filename_png = pngfilepath;
+   } else {
+       purple_debug_info("PiFo",
+                         "Image creation exited with failure\n");
+       returnval = FALSE;
+       g_string_free(pngfilepath, TRUE);
+       *filename_png = NULL;
+   }
+
+out:
+   unlink(texfilepath->str);
+   unlink(pdffilepath->str);
+   unlink(auxfilepath->str);
+   unlink(logfilepath->str);
+   unlink(epsfilepath->str);
+
+   g_string_free(epsfilepath, TRUE);
+   g_string_free(texfilepath, TRUE);
+   g_string_free(auxfilepath, TRUE);
+   g_string_free(logfilepath, TRUE);
+   g_string_free(pdffilepath, TRUE);
+
+   return returnval;
+   return TRUE;
+}
+
 gboolean render_latex(const GString *pngfilepath,
-                      const GString *texfilepath, const GString *dvifilepath){
-    gboolean exec_ok;
+                     const GString *texfilepath, const GString *dvifilepath){
+   gboolean exec_ok;
     /* Make sure that latex cannot do shell escape, even
      * if the local default config says so! */
     char * const latexopts[] = {
