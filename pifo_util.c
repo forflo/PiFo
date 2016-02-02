@@ -28,19 +28,19 @@ int execute(const char *prog, char * const cmd[]){
 
 	purple_debug_info("LaTeX",
             "Execution of program"
-            "[%s] started\n", 
+            "[%s] started\n",
             cmd[0]);
 
     child_id = fork();
 	switch (child_id) {
-        case 0: 
+        case 0:
             /* In child */
 		    exitcode = execvp(prog, cmd);
 		    exit(exitcode);
             break;
         case -1:
-            purple_debug_error("LaTeX", 
-                    "[execute()] Error while executing '%s'", 
+            purple_debug_error("LaTeX",
+                    "[execute()] Error while executing '%s'",
                     "Could not fork");
             return exitcode;
             break;
@@ -52,20 +52,20 @@ int execute(const char *prog, char * const cmd[]){
 	if (wait(&exitstatus) > 0) {
 		if (WIFEXITED(exitstatus)) {
 			exitcode = WEXITSTATUS(exitstatus);
-			purple_debug_info("LaTeX", 
+			purple_debug_info("LaTeX",
                     "[execute()] '%s' ended normally "
-                    "with exitcode '%d'\n", 
+                    "with exitcode '%d'\n",
                     prog, exitcode);
 		} else {
-			purple_debug_error("LaTeX", 
+			purple_debug_error("LaTeX",
                     "[execute()] '%s' ended abnormally "
-                    "via the signal '%d'\n", 
+                    "via the signal '%d'\n",
                     prog, WTERMSIG(exitstatus));
         }
 	} else {
-		purple_debug_error("LaTeX", 
+		purple_debug_error("LaTeX",
                 "Error while executing [%s]. "
-                "The following error occured: [%s](%d)\n", 
+                "The following error occured: [%s](%d)\n",
                 prog, strerror(errno), errno);
 	}
 
@@ -73,7 +73,7 @@ int execute(const char *prog, char * const cmd[]){
 }
 
 /* Cuts off the file name in file leaving you with just the path.
- * The function also makes a new copy of the string on the heap. 
+ * The function also makes a new copy of the string on the heap.
  */
  char* getdirname(const char const *file){
 	char *s = NULL;
@@ -81,14 +81,14 @@ int execute(const char *prog, char * const cmd[]){
 	s = strrchr(file, G_DIR_SEPARATOR);
 
     /* Is file just a pure filename without dir? */
-	if (!s) { 			
+	if (!s) {
         /* Here is no standard-, but GNU-bahaviour of getcwd assumed.
 		   Note that msdn.microsoft.com defines the same as GNU. */
 	    return getcwd(NULL, 0);
 	}
 
     /* Get the G_DIR_SEPARATOR at the end of directory-string */
-	s += 1; 	
+	s += 1;
     r = malloc(s - file + sizeof(char));
 	if (r){
 		memcpy(r, file, s - file);
@@ -120,4 +120,3 @@ int execute(const char *prog, char * const cmd[]){
 	}
 	return r;
 }
-

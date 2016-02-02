@@ -55,7 +55,7 @@ gboolean contains_work(const char *message){
 }
 
 void open_log(PurpleConversation *conv) {
-	conv->logs = g_list_append(NULL, 
+	conv->logs = g_list_append(NULL,
             purple_log_new(conv->type == PURPLE_CONV_TYPE_CHAT ? PURPLE_LOG_CHAT :
                 PURPLE_LOG_IM, conv->name, conv->account,
                 conv, time(NULL), NULL));
@@ -68,7 +68,7 @@ gboolean is_blacklisted(const char *message){
 
 	for (i = 0; i < NB_BLACKLIST; i++) {
 		regex_t regex;
-		char *begin_not_secure = 
+		char *begin_not_secure =
             malloc((strlen(not_secure[i]) + 18) * sizeof(char));
 		strcpy(begin_not_secure, "\\\\begin\\W*{\\W*");
 		strcat(begin_not_secure, not_secure[i] + 0x01);
@@ -76,7 +76,7 @@ gboolean is_blacklisted(const char *message){
 		reti = regcomp(&regex, begin_not_secure, 0);
 		reti = regexec(&regex, message, 0, NULL, 0);
 		regfree(&regex);
-		if (strstr(message, not_secure[i]) != NULL || 
+		if (strstr(message, not_secure[i]) != NULL ||
                 reti != REG_NOMATCH) return TRUE;
 
         free(begin_not_secure);
@@ -99,7 +99,7 @@ gboolean is_blacklisted(const char *message){
        ARGUMENT -> NORMAL [label="}"];
    }
  */
-gboolean get_commands(const GString *buffer, 
+gboolean get_commands(const GString *buffer,
         GPtrArray **cmds, GPtrArray **args){
     GPtrArray *commands = g_ptr_array_new();
     GPtrArray *arguments = g_ptr_array_new();
@@ -215,9 +215,9 @@ gboolean get_commands(const GString *buffer,
 }
 
 
-GString *replace_error(const GString *original, 
-        const GString *command, 
-        const GString *snippet, 
+GString *replace_error(const GString *original,
+        const GString *command,
+        const GString *snippet,
         const char * message){
 
     GString *replacer = g_string_new(message);
@@ -232,7 +232,7 @@ GString *replace_error(const GString *original,
     g_string_append(to_replace, "}");
 
 #ifdef DEBUG
-    printf("replace_error: %s with %s\n", 
+    printf("replace_error: %s with %s\n",
             to_replace->str, replacer->str);
 #endif
 
@@ -246,12 +246,12 @@ GString *replace_error(const GString *original,
 
 #ifdef DEBUG
     printf("result: %s\n", result->str);
-#endif 
+#endif
 
     return result;
 }
 
-GString *replace(const GString *original, 
+GString *replace(const GString *original,
         const GString *command, const GString *snippet, int id){
 
     GString *replacer = g_string_new(IMG_BEG);
@@ -283,7 +283,7 @@ GString *replace(const GString *original,
 
 #ifdef DEBUG
     printf("result: %s\n", result->str);
-#endif 
+#endif
 
     return result;
 }
@@ -340,20 +340,20 @@ int load_image(const GString *resulting_png){
     GError *error;
 
 	if (!g_file_get_contents(resulting_png->str, &filedata, &size, &error)) {
-		purple_notify_error(me, "LaTeX", 
-                "Error while reading the rendered markup [%s]", 
+		purple_notify_error(me, "LaTeX",
+                "Error while reading the rendered markup [%s]",
                 error->message);
 		g_error_free(error);
 
 		return -1;
 	}
 
-	img_id = purple_imgstore_add_with_id(filedata, 
+	img_id = purple_imgstore_add_with_id(filedata,
             MAX(1024, size), getfilename(resulting_png->str));
 
 	if (img_id == 0) {
-		purple_notify_error(me, "LaTeX", 
-                "Error while reading the generated image!", 
+		purple_notify_error(me, "LaTeX",
+                "Error while reading the generated image!",
                 "Failed to store image.");
 		return -1;
 	}
@@ -407,12 +407,12 @@ GString *modify_message(const GString *message){
 
         picpath = dispatch_command(command, snippet);
         if (picpath == NULL){
-            purple_debug_info("PiFo", 
+            purple_debug_info("PiFo",
                     "Could not dispatch command: [%s(%s,%s)]\n",
                     "Command not found: ", command->str, snippet->str);
-            
+
             GString *error_msg = g_string_new(NULL);
-            g_string_append_printf(error_msg, 
+            g_string_append_printf(error_msg,
                     "{PiFo: [%s] is not a valid command!}",
                     command->str);
             new = replace_error(old, command, snippet, error_msg->str);
@@ -422,17 +422,17 @@ GString *modify_message(const GString *message){
             old = new;
         } else {
             image_id = load_image(picpath);
-    
+
             if(image_id == -1){
-                return NULL;  
+                return NULL;
             }
-    
+
             new = replace(old, command, snippet, image_id);
-    
+
             unlink(picpath->str);
             g_string_free(old, TRUE);
             g_string_free(picpath, TRUE);
-    
+
             old = new;
         }
     }
@@ -445,7 +445,7 @@ GString *modify_message(const GString *message){
     printf("PiFo",
             "Changed message from [%s] to [%s]\n",
             message->str, new->str);
-#endif 
+#endif
 
     free_snippets(snippets);
     free_commands(commands);
@@ -456,8 +456,8 @@ GString *modify_message(const GString *message){
 }
 
 //TODO: Check sanity of this function!
-gboolean pidgin_latex_write(PurpleConversation *conv, 
-        const char *nom, const char *message, 
+gboolean pidgin_latex_write(PurpleConversation *conv,
+        const char *nom, const char *message,
         PurpleMessageFlags messFlag, const char *original){
 
 //	gboolean logflag = purple_conversation_is_logging(conv);
@@ -470,7 +470,7 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
 //
 //		log = conv->logs;
 //		while (log != NULL) {
-//			purple_log_write((PurpleLog*)log->data, 
+//			purple_log_write((PurpleLog*)log->data,
 //                    messFlag, nom, time(NULL), original);
 //			log = log->next;
 //		}
@@ -479,10 +479,10 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
 //	}
 
 	if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_CHAT){
-		purple_conv_chat_write(PURPLE_CONV_CHAT(conv), 
+		purple_conv_chat_write(PURPLE_CONV_CHAT(conv),
                 nom, message, messFlag, time(NULL));
     } else if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_IM) {
-		purple_conv_im_write(PURPLE_CONV_IM(conv), 
+		purple_conv_im_write(PURPLE_CONV_IM(conv),
                 nom, message, messFlag, time(NULL));
     }
 
@@ -493,20 +493,20 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
 	return TRUE;
 }
 
-void message_send_chat(PurpleAccount *account, 
+void message_send_chat(PurpleAccount *account,
         const char **buffer, int id){
 	PurpleConnection *conn = purple_account_get_connection(account);
 	message_send(purple_find_chat(conn, id), buffer);
 }
 
-void message_send_im(PurpleAccount *account, 
+void message_send_im(PurpleAccount *account,
         const char *who, const char **buffer){
 	message_send(purple_find_conversation_with_account(
                 PURPLE_CONV_TYPE_IM, who, account), buffer);
 }
 
-gboolean message_receive(PurpleAccount *account, 
-        const char *who, const char **buffer, 
+gboolean message_receive(PurpleAccount *account,
+        const char *who, const char **buffer,
         PurpleConversation *conv, PurpleMessageFlags flags){
     gchar *unescaped = purple_unescape_html(*buffer);
 
@@ -517,8 +517,8 @@ gboolean message_receive(PurpleAccount *account,
     GString *modified;
     g_free(unescaped);
 
-	purple_debug_info("PiFo", 
-            "Received message: [%s]\n", 
+	purple_debug_info("PiFo",
+            "Received message: [%s]\n",
             *buffer);
 
 	if (!contains_work(*buffer)){
@@ -527,7 +527,7 @@ gboolean message_receive(PurpleAccount *account,
 	}
 
 	if (is_blacklisted(*buffer)) {
-		purple_debug_info("PiFo", 
+		purple_debug_info("PiFo",
                 "Message not analysed, because it "
                 "contained blacklisted code.\n");
         g_string_free(wrapper, TRUE);
@@ -536,8 +536,8 @@ gboolean message_receive(PurpleAccount *account,
 
     modified = modify_message(wrapper);
     if (modified == NULL){
-        purple_debug_info("PiFo", 
-                "Message could not be modified: [%s]\n", 
+        purple_debug_info("PiFo",
+                "Message could not be modified: [%s]\n",
                 *buffer);
         return FALSE;
     }
@@ -581,18 +581,18 @@ gboolean plugin_load(PurplePlugin *plugin){
 }
 
 gboolean plugin_unload(PurplePlugin * plugin){
-	void *conv_handle = purple_conversations_get_handle(); 
-	purple_signal_disconnect(conv_handle, 
-            "sending-im-msg", plugin, 
+	void *conv_handle = purple_conversations_get_handle();
+	purple_signal_disconnect(conv_handle,
+            "sending-im-msg", plugin,
             PURPLE_CALLBACK(message_send_im));
-	purple_signal_disconnect(conv_handle, 
-            "sending-chat-msg", plugin, 
+	purple_signal_disconnect(conv_handle,
+            "sending-chat-msg", plugin,
             PURPLE_CALLBACK(message_send_chat));
-	purple_signal_disconnect(conv_handle, 
-            "writing-im-msg", plugin, 
+	purple_signal_disconnect(conv_handle,
+            "writing-im-msg", plugin,
             PURPLE_CALLBACK(message_receive));
-	purple_signal_disconnect(conv_handle, 
-            "writing-chat-msg", plugin, 
+	purple_signal_disconnect(conv_handle,
+            "writing-chat-msg", plugin,
             PURPLE_CALLBACK(message_receive));
 
 	me = NULL;
@@ -617,13 +617,13 @@ PurplePluginInfo info = {
 	/**  summary        */
 	"To display various rendered markup codes into Pidgin conversation.",
 	/**  description    */
-	"Put Markup-code between \\markupcmd{...} to have it displayed as " 
+	"Put Markup-code between \\markupcmd{...} to have it displayed as "
     "Picture in your conversation.\nRemember that your contact needs "
     "an similar plugin or else he will just see the pure Markup-code\nYou "
     "must have LaTeX, Graphviz and dvipng installed (in your PATH)",
 	"Florian Mayer <mayer.florian@web.de> (complete rewrite)\n"
 	"Benjamin Moll <qjuh@users.sourceforge.net>, Nicolas Schoonbroodt\n"
-    "<nicolas@ffsa.be> and Nicolai Stange <nic-stange@t-online.de>\n" 
+    "<nicolas@ffsa.be> and Nicolai Stange <nic-stange@t-online.de>\n"
     "provided the valuable base sources (legacy pidgin-latex)", /**< author       */
 	WEBSITE,                                /**< homepage       */
 	plugin_load,                            /**< load           */
@@ -641,6 +641,6 @@ PurplePluginInfo info = {
 
  void init_plugin(PurplePlugin *plugin){
     return;
-} 
+}
 
 PURPLE_INIT_PLUGIN(pifo, init_plugin, info)
