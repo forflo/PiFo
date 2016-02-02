@@ -491,6 +491,9 @@ gboolean message_receive(PurpleAccount *account,
 
 #ifdef DEBUG
     printf("Message_received! [%s]\n", *buffer);
+    printf("who: [%s] account->name [%s] \n"
+            "conv->account->name [%s]\n", 
+            who, account->username, conv->account->username);
 #endif
     GString *wrapper = g_string_new(unescaped);
     GString *modified;
@@ -526,6 +529,15 @@ gboolean message_receive(PurpleAccount *account,
 }
 
 void message_send(PurpleConversation *conv, const char **buffer){
+	purple_debug_info("PiFo",
+            "Sending message: [%s]\n",
+            *buffer);    
+
+#ifdef DEBUG
+    printf("conv->account->name [%s]\n", conv->account->username);
+#endif
+
+
     return;
 }
 
