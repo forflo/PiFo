@@ -5,28 +5,36 @@
 
 struct mapping {
     const char *command;
-    gboolean (*handler)(const GString *string, 
+    gboolean (*handler)(const GString *string,
             const GString *command,
             void **returnval);
 };
 
-gboolean setup_files(GString **tex, 
+gboolean setup_files(GString **tex,
        GString **dvi, GString **png,
        GString **aux, GString **log);
 
-gboolean generate_latex_listing(const GString *listing, 
+gboolean generate_latex_listing(const GString *listing,
         const GString *language, GString **filename);
 
 gboolean generate_graphviz_png(const GString *dotcode,
         const GString *command,
         GString **filename);
 
-gboolean generate_latex_formula(const GString *formula, 
+gboolean generate_latex_formula(const GString *formula,
         const GString *command,
         GString **filename_png);
 
-gboolean render_latex(const GString *pngfilepath, 
+gboolean render_latex(const GString *pngfilepath,
         const GString *texfilepath, const GString *dvifilepath);
+
+gboolean generate_markdown(const GString *markdown_text,
+                           const GString *command,
+                           GString **filename_png);
+
+gboolean render_markdown (const GString *markdownfilepath,
+                          const GString *texfilepath);
+
 
 gboolean chtempdir(const GString *path);
 GString *dispatch_command(const GString *command, const GString *snippet);
