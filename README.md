@@ -1,28 +1,30 @@
 # Description
-
-This is a fork of the pidgin latex plugin. It aims to
-refactor and extend it. By now, it is basically a complete
-rewrite of the original sources.
-The pidgin latex plugin for Pidgin allows you to 
-display various latex markup.
+PiFo is a plugin for the chat program [pidgin](https://www.pidgin.im/)
+It enables you to render various latex markups and graphviz dot code
+embedded into your normal conversation.
 
 You can
 * highlight your sourcecode,
-* display formulas or
-* generate graphs from dot files
+* display some maths or
+* generate neat looking graphs from dot code
 
 # Demo
 
+Right now, there are two demos. The first
+demo shows formula rendering and code highlighting.
+The second shows the newest feature: Embedded graphvzi rendering :)
+
 [![Pifos first Screencast](http://img.youtube.com/vi/W0NIbWjxUsI/0.jpg)](http://www.youtube.com/watch?v=W0NIbWjxUsI)
+[![Pifos second Screencast](http://img.youtube.com/vi/dNmzUOX3aBk/0.jpg)](http://www.youtube.com/watch?v=dNmzUOX3aBk)
 
 # Requirements
-	- The pidgin header files (needed to compile the plugin)
-	- A LaTex-Distribution
-	- dvipng
-    - latex
-    - graphviz
+- The pidgin header files (needed to compile the plugin)
+- A LaTex-Distribution
+- dvipng
+- latex
+- graphviz
 
-# Usage
+# Usage in detail
 You can markup some of your text via the following
 construct (embedded into your normal conversation)
 
