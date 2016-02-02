@@ -351,7 +351,7 @@ int load_image(const GString *resulting_png){
 	img_id = purple_imgstore_add_with_id(filedata, 
             MAX(1024, size), getfilename(resulting_png->str));
 
-	if (img_id == 0) {
+	if (img_id == 0){
 		purple_notify_error(me, "LaTeX", 
                 "Error while reading the generated image!", 
                 "Failed to store image.");
@@ -455,29 +455,31 @@ GString *modify_message(const GString *message){
     return new;
 }
 
-//TODO: Check sanity of this function!
 gboolean pidgin_latex_write(PurpleConversation *conv, 
         const char *nom, const char *message, 
         PurpleMessageFlags messFlag, const char *original){
+    gboolean logflag = purple_conversation_is_logging(conv);
 
-//	gboolean logflag = purple_conversation_is_logging(conv);
-//
-//	if (logflag) {
-//		GList *log;
-//
-//		if (conv->logs == NULL)
-//			open_log(conv);
-//
-//		log = conv->logs;
-//		while (log != NULL) {
-//			purple_log_write((PurpleLog*)log->data, 
-//                    messFlag, nom, time(NULL), original);
-//			log = log->next;
-//		}
-//
-//		purple_conversation_set_logging(conv, FALSE);
-//	}
+    PurpleAccount *account = conv->account;
+    const char *name = account->alias;
 
+  	if (logflag) {
+  		GList *log;
+  
+  		if (conv->logs == NULL)
+  			open_log(conv);
+  
+  		log = conv->logs;
+  		while (log != NULL) {
+  			purple_log_write((PurpleLog*) log->data, 
+                      PURPLE_MESSAGE_SEND, 
+                      name, time(NULL), original);
+  			log = log->next;
+  		}
+  
+  		purple_conversation_set_logging(conv, FALSE);
+  	}
+  	
 	if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_CHAT){
 		purple_conv_chat_write(PURPLE_CONV_CHAT(conv), 
                 nom, message, messFlag, time(NULL));
@@ -485,10 +487,11 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
 		purple_conv_im_write(PURPLE_CONV_IM(conv), 
                 nom, message, messFlag, time(NULL));
     }
+  
 
-//	if (logflag){
-//		purple_conversation_set_logging(conv, TRUE);
-//    }
+ 	if (logflag){
+  		purple_conversation_set_logging(conv, TRUE);
+    }
 
 	return TRUE;
 }
@@ -547,7 +550,6 @@ gboolean message_receive(PurpleAccount *account,
             modified->str);
 
 	pidgin_latex_write(conv, who, modified->str, flags, *buffer);
-
 
     g_string_free(modified, TRUE);
     g_string_free(wrapper, TRUE);
