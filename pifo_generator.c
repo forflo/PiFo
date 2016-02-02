@@ -375,11 +375,12 @@ gboolean generate_tikz_png(const GString *tikz_code,
     }
 
 #ifdef DEBUG
-    printf("Transcript_file: " LATEX_TIKZ_TEMPLATE "\n", tikz_code);
+    printf("Transcript_file: " LATEX_TIKZ_TEMPLATE "\n", 
+            tikz_code->str);
 #endif
 
     /* Generate latex template file */
-    fprintf(tikz_texfile, LATEX_TIKZ_TEMPLATE, tikz_code);
+    fprintf(tikz_texfile, LATEX_TIKZ_TEMPLATE, tikz_code->str);
    fclose(tikz_texfile);
 
    if (render_latex_pdf_to_png(pngfilepath, 

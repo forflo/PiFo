@@ -61,30 +61,6 @@ void open_log(PurpleConversation *conv) {
                 conv, time(NULL), NULL));
 }
 
-gboolean is_blacklisted(const char *message){
-	char *not_secure[NB_BLACKLIST] = BLACKLIST;
-	int reti;
-	int i;
-
-	for (i = 0; i < NB_BLACKLIST; i++) {
-		regex_t regex;
-		char *begin_not_secure =
-            malloc((strlen(not_secure[i]) + 18) * sizeof(char));
-		strcpy(begin_not_secure, "\\\\begin\\W*{\\W*");
-		strcat(begin_not_secure, not_secure[i] + 0x01);
-		strcat(begin_not_secure, "\\W*}");
-		reti = regcomp(&regex, begin_not_secure, 0);
-		reti = regexec(&regex, message, 0, NULL, 0);
-		regfree(&regex);
-		if (strstr(message, not_secure[i]) != NULL ||
-                reti != REG_NOMATCH) return TRUE;
-
-        free(begin_not_secure);
-	}
-
-	return FALSE;
-}
-
 /*
  * Here is the FSM as dot
    digraph fsm {
@@ -525,14 +501,6 @@ gboolean message_receive(PurpleAccount *account,
             *buffer);
 
 	if (!contains_work(*buffer)){
-        g_string_free(wrapper, TRUE);
-		return FALSE;
-	}
-
-	if (is_blacklisted(*buffer)) {
-		purple_debug_info("PiFo",
-                "Message not analysed, because it "
-                "contained blacklisted code.\n");
         g_string_free(wrapper, TRUE);
 		return FALSE;
 	}
