@@ -13,11 +13,12 @@ You can
 In a certain way, you could think of PiFo as an integrated REPL for 
 various markup and procedural graphics languages.
 
-# Demo
+# Screencasts
 
 Right now, there are two demos. The first
 demo shows formula rendering and code highlighting.
 The second shows the newest feature: Embedded graphvzi rendering :)
+You can watch the screencasts by clicking on the thumbnails.
 
 [![Pifos first Screencast](http://img.youtube.com/vi/W0NIbWjxUsI/0.jpg)](http://www.youtube.com/watch?v=W0NIbWjxUsI)
 [![Pifos second Screencast](http://img.youtube.com/vi/dNmzUOX3aBk/0.jpg)](http://www.youtube.com/watch?v=dNmzUOX3aBk)
@@ -33,9 +34,9 @@ The second shows the newest feature: Embedded graphvzi rendering :)
 You can markup some of your text via the following
 construct (embedded into your normal conversation)
 
-    <normal conversation text> 
+    [normal conversation text]
     \command{your formula, dot code or whatever} 
-    <additional conversation text>
+    [additional conversation text]
 
 If a command is detected, it'll be dispatched to one of the rendering
 backends and the result is displayed nicely enclosed by your 
@@ -137,11 +138,14 @@ Hiere is a list of all commands that will be recognized
 * \xml{}
 * \dot{}
 * \formula{}
+* \markdown{}
+* \tikz{}
 
 \ada{} to \xml{} hightlights source code.
 \dot{} renders arbitrary graphiz dot code
-and \formula{} can be used to display common
-LateX math markup.
+\formula{} can be used to display commonLateX math markup.
+\markdown{} enables you to use pandocs power right in pidgin and
+\tikz{} can compile and display the PGF graphics language.
 
 # Important notes
 
