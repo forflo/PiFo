@@ -1,6 +1,11 @@
 *.so
 *.o
+*.dat
+*.pdf
 *.log
+*.dvi
+*.eps
 *.aux
+*.png
 TAGS
 tags
