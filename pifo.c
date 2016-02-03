@@ -449,7 +449,7 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
   		while (log != NULL) {
   			purple_log_write((PurpleLog*) log->data, 
                       PURPLE_MESSAGE_SEND, 
-                      name, time(NULL), original);
+                      nom, time(NULL), original);
   			log = log->next;
   		}
   
