@@ -1,12 +1,17 @@
 # Description
 PiFo is a plugin for the chat program [pidgin](https://www.pidgin.im/)
-It enables you to render various latex markups and graphviz dot code
+It enables you to render various latex markups and procedural graphics code
 embedded into your normal conversation.
 
 You can
-* highlight your sourcecode,
-* display some maths or
-* generate neat looking graphs from dot code
+* highlight your sourcecode using the [listings](http://ctan.org/pkg/listings) package for LaTeX,
+* display some maths using the [amsmath](http://ctan.org/pkg/amsmath) packages,
+* generate neat looking [graphivz](http://graphviz.org/) graphs from dot code,
+* render extended [markdown](https://daringfireball.net/projects/markdown/) using [pandoc](http://pandoc.org/README.html#pandocs-markdown) or
+* compile and view [TikZ](https://en.wikibooks.org/wiki/LaTeX/PGF/TikZ) procedural graphics.
+
+In a certain way, you could think of PiFo as an integrated REPL for 
+various markup and procedural graphics languages.
 
 # Demo
 
@@ -28,21 +33,26 @@ The second shows the newest feature: Embedded graphvzi rendering :)
 You can markup some of your text via the following
 construct (embedded into your normal conversation)
 
-    \command{your formula, dot code or whatever}
+    <normal conversation text> 
+    \command{your formula, dot code or whatever} 
+    <additional conversation text>
 
 If a command is detected, it'll be dispatched to one of the rendering
 backends and the result is displayed nicely enclosed by your 
-surrounding text.
+surrounding text. Note, that you can use arbitrarily many of those
+commands in your messages!
 
-Here is a list of markup commands you can currently use.
+Here is a list of examples. The shown code
+can be pasted directly into your conversation window.
 
 ## Graphivz dot
 Display of graphviz dot code
 
-    He look at following graph: \graph{your dot code here}
+    Hey, look at following graph! \dot{digraph foo {a->a->a->a;}}
+    
+![The rendered graph](screenshots/dot.png)
 
 ## Latex maths
-Use the following snippet:
 
     Hey, i found out that I can create the set of natural
     numbers by describing them inductively. I use the Axiom
@@ -66,6 +76,44 @@ or use this one for highlighting haskell sources
         0 `shaves` x = not (x `shaves` x)
         _ `shaves` _ = False
     }
+    
+the latter code is equivalent to latex code:
+
+	\usepackage{listings}
+	\lstset{language=haskell}
+	% [...] various other lstset
+	\begin{document}
+	\begin{lstlisting}
+	shaves :: Integer -> Integer -> Bool
+        1 `shaves` 1 = True
+        2 `shaves` 2 = False
+        0 `shaves` x = not (x `shaves` x)
+        _ `shaves` _ = False
+	\end{lstlisting}
+	
+![Here is a screenshot of this feature](screenshots/hask.png)
+    
+## TikZ compilation
+
+If you want to create TikZ graphics inside your conversation, you
+would want to paste the following snippet into your conversation.
+
+	\tikz{
+		\foreach \x in {0,...,9} 
+		\draw (\x,0) circle (0.4);
+	}
+	
+this is equivalent to this LaTeX code
+
+	\documentclass{article}
+	\usepackage{tikz}
+	\begin{document}
+	\begin{tikzpicture}
+		\foreach \x in {0,...,9} 
+		\draw (\x,0) circle (0.4);
+	\end{tikzpicture}
+
+![TikZ command in action](screenshots/tikz.png)
 
 # Complete command list
 
@@ -125,7 +173,7 @@ and install it with
 	$ make install
 
 This will install it in ~/.purple/plugins so 
-that only the user who install it can use it.
+that only the user who installed it can use it.
 
 To install it for everybody on your computer,
 
