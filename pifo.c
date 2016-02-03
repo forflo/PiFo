@@ -432,9 +432,19 @@ GString *modify_message(const GString *message){
 }
 
 gboolean pidgin_latex_write(PurpleConversation *conv, 
-        const char *nom, const char *message, 
+        const char *partner, const char *message, 
         PurpleMessageFlags messFlag, const char *original){
     gboolean logflag = purple_conversation_is_logging(conv);
+
+#ifdef DEBUG
+    printf("pidgin_latex_write()\n");
+    printf("partner: [%s] conv->account->username: [%s]\n",
+            partner, conv->account->username);
+    if (messFlag == PURPLE_MESSAGE_SEND)
+        printf("messFlag: [%s]\n", "SEND");
+    if (messFlag == PURPLE_MESSAGE_RECV)
+        printf("messFlag: [%s]\n", "RECV");
+#endif
 
     PurpleAccount *account = conv->account;
     const char *name = account->alias;
@@ -447,9 +457,12 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
   
   		log = conv->logs;
   		while (log != NULL) {
-  			purple_log_write((PurpleLog*) log->data, 
-                      PURPLE_MESSAGE_SEND, 
-                      nom, time(NULL), original);
+  			purple_log_write((PurpleLog*) log->data, messFlag, 
+                    (messFlag == PURPLE_MESSAGE_SEND 
+                        ? conv->account->alias
+                        : partner
+                        ), 
+                    time(NULL), original);
   			log = log->next;
   		}
   
@@ -458,10 +471,10 @@ gboolean pidgin_latex_write(PurpleConversation *conv,
   	
 	if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_CHAT){
 		purple_conv_chat_write(PURPLE_CONV_CHAT(conv),
-                nom, message, messFlag, time(NULL));
+                partner, message, messFlag, time(NULL));
     } else if (purple_conversation_get_type(conv) == PURPLE_CONV_TYPE_IM) {
 		purple_conv_im_write(PURPLE_CONV_IM(conv),
-                nom, message, messFlag, time(NULL));
+                partner, message, messFlag, time(NULL));
     }
   
 
@@ -534,9 +547,9 @@ void message_send(PurpleConversation *conv, const char **buffer){
             *buffer);    
 
 #ifdef DEBUG
+    printf("message_send()\n");
     printf("conv->account->name [%s]\n", conv->account->username);
 #endif
-
 
     return;
 }
