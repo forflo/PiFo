@@ -407,7 +407,7 @@ GString *modify_message(const GString *message){
 
             unlink(picpath->str);
             g_string_free(old, TRUE);
-            g_string_free(picpath, TRUE);
+//            g_string_free(picpath, TRUE);
 
             old = new;
         }
@@ -515,6 +515,10 @@ gboolean message_receive(PurpleAccount *account,
 	purple_debug_info("PiFo",
             "Received message: [%s]\n",
             *buffer);
+
+	purple_debug_info("PiFo",
+            "Unescaped message: [%s]\n",
+            wrapper->str);
 
 	if (!contains_work(*buffer)){
         g_string_free(wrapper, TRUE);

@@ -14,6 +14,9 @@ gboolean setup_files(GString **tex,
        GString **dvi, GString **png,
        GString **aux, GString **log);
 
+gboolean generate_svg_png(const GString *svg_code,
+        const GString *command, GString **filename_png);
+
 gboolean generate_latex_listing(const GString *listing,
         const GString *language, GString **filename);
 

@@ -5,10 +5,12 @@
 #include "pifo.h"
 
 #define DEBUG
+#define FOO "fnord";
+
 
 extern PurplePlugin *me;
 
-/* Commandstring -> Function mapping */
+/* commandstring -> function mapping */
 static const struct mapping commandmap[] = {
     /* source highlighting commands */
     {"ada", (gboolean (*)(const GString *c, const GString *s, void **r))
@@ -60,6 +62,9 @@ static const struct mapping commandmap[] = {
 
     {"tikz", (gboolean (*)(const GString *c, const GString *s, void **r))
      generate_tikz_png},
+
+    {"svg", (gboolean (*)(const GString *c, const GString *s, void **r))
+     generate_svg_png}
 };
 
 
@@ -293,7 +298,7 @@ gboolean chtempdir(const GString *path){
     return TRUE;
 }
 
-gboolean render_latex_pdf_to_png(const GString *pngfilepath, 
+gboolean render_latex_pdf_to_png(const GString *pngfilepath,
         const GString *texfilepath, const GString *epsfilepath,
         const GString *pdffilepath){
 
@@ -312,7 +317,7 @@ gboolean render_latex_pdf_to_png(const GString *pngfilepath,
 
     char * const convert[] = {
         "convert", "-trim",
-        "-density", "300", 
+        "-density", "300",
         epsfilepath->str, pngfilepath->str, NULL
     };
 
@@ -330,6 +335,107 @@ gboolean render_latex_pdf_to_png(const GString *pngfilepath,
     return TRUE;
 }
 
+gboolean render_svg_to_png(const GString *pngfile, const GString *svgfile){
+    int exec;
+
+    char * const convert[] = {
+        "convert", "-trim",
+        "-density", "300",
+        svgfile->str,
+        pngfile->str, NULL
+    };
+
+    /* Disgusting hack because fucking libpurple
+       automatically linkifies every "http://somewhat"
+       string that gets into the conversation window. Html unescape
+       OF COURSE does not take care of that...
+       I hate libpurple! */
+    char * const sed[] = {
+         "sed", "-i"
+         "-e",
+         "s/\\\"<A HREF=\\\".*\\\">\\(http:\\/\\/.*\\)<\\/A>\\\"/\\\"\\1\\\"/g",
+         svgfile->str,
+	 NULL
+    };
+
+    #ifdef DEBUG
+    printf("Sed Argument: [%s]\n", sed[3]);
+    #endif
+
+    exec = (execute("sed", sed) == 0) &&
+	   (execute("convert", convert) == 0);
+
+    if (!exec){
+        purple_debug_info("PiFo",
+                "Could not render file [%s]\n",
+                svgfile->str);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+gboolean generate_svg_png(const GString *svg_code,
+        const GString *command,
+        GString **filename_png){
+
+    FILE *svgfile;
+    gboolean returnval = TRUE;
+
+    GString *svgfilepath, *pngfilepath;
+
+    GString *tmpfilepath;
+    tmpfilepath = get_unique_tmppath();
+
+    pngfilepath = g_string_new(tmpfilepath->str);
+    svgfilepath = g_string_new(tmpfilepath->str);
+
+    g_string_free(tmpfilepath, TRUE);
+
+    g_string_append(pngfilepath, ".png");
+    g_string_append(svgfilepath, ".svg");
+
+    purple_debug_info("PiFo",
+                      "Using [%s] as svg file\n",
+                      svgfilepath->str);
+
+    if (!chtempdir(svgfilepath)){
+        returnval = FALSE;
+        goto out;
+    }
+
+    if (!(svgfile = fopen(svgfilepath->str, "w"))){
+        returnval = FALSE;
+        goto out;
+    }
+
+#ifdef DEBUG
+    printf("Transcript file: %s\n", svgfilepath->str);
+#endif
+
+    /* Generate svg file */
+    fprintf(svgfile, "%s", svg_code->str);
+    fclose(svgfile);
+
+    if (render_svg_to_png(pngfilepath, svgfilepath) == TRUE){
+        *filename_png = pngfilepath;
+    } else {
+        purple_debug_info("PiFo",
+                          "Image creation exited with failure\n");
+        returnval = FALSE;
+        g_string_free(pngfilepath, TRUE);
+        *filename_png = NULL;
+    }
+
+out:
+    // unlink(svgfilepath->str);
+
+    g_string_free(svgfilepath, TRUE);
+
+    return returnval;
+    return TRUE;
+}
+
 gboolean generate_tikz_png(const GString *tikz_code,
         const GString *command,
         GString **filename_png){
@@ -337,7 +443,7 @@ gboolean generate_tikz_png(const GString *tikz_code,
     FILE *tikz_texfile;
     gboolean returnval = TRUE;
 
-    GString *texfilepath, *pdffilepath, 
+    GString *texfilepath, *pdffilepath,
             *auxfilepath, *logfilepath,
             *epsfilepath, *pngfilepath;
 
@@ -375,7 +481,7 @@ gboolean generate_tikz_png(const GString *tikz_code,
     }
 
 #ifdef DEBUG
-    printf("Transcript_file: " LATEX_TIKZ_TEMPLATE "\n", 
+    printf("Transcript_file: " LATEX_TIKZ_TEMPLATE "\n",
             tikz_code->str);
 #endif
 
@@ -383,8 +489,8 @@ gboolean generate_tikz_png(const GString *tikz_code,
     fprintf(tikz_texfile, LATEX_TIKZ_TEMPLATE, tikz_code->str);
    fclose(tikz_texfile);
 
-   if (render_latex_pdf_to_png(pngfilepath, 
-               texfilepath, epsfilepath, 
+   if (render_latex_pdf_to_png(pngfilepath,
+               texfilepath, epsfilepath,
                pdffilepath) == TRUE){
        *filename_png = pngfilepath;
    } else {

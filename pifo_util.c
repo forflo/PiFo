@@ -23,13 +23,15 @@ GString *get_unique_tmppath(void){
 /* Helper function for command execution */
 int execute(const char *prog, char * const cmd[]){
 	int i = 0;
+	int j = 0;
 	int exitcode = -1, exitstatus;
 	pid_t child_id = 0;
 
-	purple_debug_info("LaTeX",
+	purple_debug_info("PiFo",
             "Execution of program"
             "[%s] started\n",
             cmd[0]);
+
 
     child_id = fork();
 	switch (child_id) {
