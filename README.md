@@ -23,12 +23,14 @@ You can watch the screencasts by clicking on the thumbnails.
 [![Pifos first Screencast](http://img.youtube.com/vi/W0NIbWjxUsI/0.jpg)](http://www.youtube.com/watch?v=W0NIbWjxUsI)
 [![Pifos second Screencast](http://img.youtube.com/vi/dNmzUOX3aBk/0.jpg)](http://www.youtube.com/watch?v=dNmzUOX3aBk)
 
-# Requirements
+# Prerequisites
 - The pidgin header files (needed to compile the plugin)
-- A LaTex-Distribution
-- dvipng
-- latex
-- graphviz
+- A LaTex-Distribution (preferably TeXlive)
+- dvipng (command line utility)
+- latex (command line utility)
+- The graphviz suite
+- ImageMagic (especially the convert utility)
+- Poppler
 
 # Usage in detail
 You can markup some of your text via the following
