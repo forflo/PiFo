@@ -249,8 +249,8 @@ gboolean generate_graphviz_png(const GString *dotcode,
     goto out;
 
  out:
-    //unlink(tmpfile->str);
-    //g_string_free(tmpfile, TRUE);
+    unlink(tmpfile->str);
+    g_string_free(tmpfile, TRUE);
 
     return returnval;
 }
@@ -428,7 +428,7 @@ gboolean generate_svg_png(const GString *svg_code,
     }
 
 out:
-    // unlink(svgfilepath->str);
+    unlink(svgfilepath->str);
 
     g_string_free(svgfilepath, TRUE);
 

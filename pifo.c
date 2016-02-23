@@ -359,6 +359,17 @@ gboolean free_snippets(const GPtrArray *snippets){
     return TRUE;
 }
 
+/* snippet is only vaild if it contains at least
+   one non-whitespace char */
+gboolean snippet_valid(const GString *snippet){
+     int i;
+     for (i=0; i<snippet->len; i++)
+	  if (! g_ascii_isspace (snippet->str[i]))
+	       return TRUE;
+
+     return FALSE;
+}
+
 GString *modify_message(const GString *message){
     int image_id;
     int i;
@@ -381,36 +392,54 @@ GString *modify_message(const GString *message){
         command = g_ptr_array_index(commands, i);
         snippet = g_ptr_array_index(snippets, i);
 
-        picpath = dispatch_command(command, snippet);
-        if (picpath == NULL){
+	if (!snippet_valid(snippet)){
             purple_debug_info("PiFo",
-                    "Could not dispatch command: [%s(%s,%s)]\n",
-                    "Command not found: ", command->str, snippet->str);
+			      "Could not dispatch command\n",
+			      "Argument empty\n"); 
 
             GString *error_msg = g_string_new(NULL);
             g_string_append_printf(error_msg,
-                    "{PiFo: [%s] is not a valid command!}",
+                    "{PiFo: [%s] You have to provide an Argument!}",
                     command->str);
             new = replace_error(old, command, snippet, error_msg->str);
 
             g_string_free(error_msg, TRUE);
             g_string_free(old, TRUE);
             old = new;
+
         } else {
-            image_id = load_image(picpath);
 
-            if(image_id == -1){
-                return NULL;
-            }
+	     picpath = dispatch_command(command, snippet);
+	     if (picpath == NULL){
+		  purple_debug_info("PiFo",
+				    "Could not dispatch command: [%s(%s,%s)]\n",
+				    "Command not found: ", command->str, snippet->str);
 
-            new = replace(old, command, snippet, image_id);
+		  GString *error_msg = g_string_new(NULL);
+		  g_string_append_printf(error_msg,
+					 "{PiFo: [%s] is not a valid command!}",
+					 command->str);
+		  new = replace_error(old, command, snippet, error_msg->str);
 
-            unlink(picpath->str);
-            g_string_free(old, TRUE);
-//            g_string_free(picpath, TRUE);
+		  g_string_free(error_msg, TRUE);
+		  g_string_free(old, TRUE);
+		  old = new;
+	     } else {
+		  image_id = load_image(picpath);
 
-            old = new;
-        }
+		  if(image_id == -1){
+		       return NULL;
+		  }
+
+		  new = replace(old, command, snippet, image_id);
+
+		  unlink(picpath->str);
+		  g_string_free(old, TRUE);
+		  g_string_free(picpath, TRUE);
+
+		  old = new;
+	     }
+	}
     }
 
     purple_debug_info("PiFo",
